@@ -1,5 +1,5 @@
 import React from 'react';
-import { TouchableOpacity, Text, ActivityIndicator, TouchableOpacityProps } from 'react-native';
+import { TouchableOpacity, Text, ActivityIndicator, TouchableOpacityProps, StyleSheet } from 'react-native';
 import { useTheme } from '@/hooks/useTheme';
 
 interface ButtonProps extends TouchableOpacityProps {
@@ -9,27 +9,40 @@ interface ButtonProps extends TouchableOpacityProps {
   icon?: React.ReactNode;
 }
 
-export function Button({ title, variant = 'primary', loading, icon, disabled, className, ...props }: ButtonProps) {
+export function Button({ title, variant = 'primary', loading, icon, disabled, style, ...props }: ButtonProps) {
   const { isDark } = useTheme();
-  const spinnerColor = variant === 'primary' ? '#ffffff' : (isDark ? '#60a5fa' : '#1e3a5f');
-  const baseClass = 'flex-row items-center justify-center rounded-lg px-6 py-3 min-h-[48px]';
-  const variantClass = {
-    primary: 'bg-primary',
-    secondary: 'bg-muted',
-    outline: 'border-2 border-primary bg-transparent',
-    ghost: 'bg-transparent',
-  }[variant];
 
-  const textClass = {
-    primary: 'text-white font-semibold text-base',
-    secondary: 'text-foreground font-semibold text-base',
-    outline: 'text-primary font-semibold text-base',
-    ghost: 'text-primary font-semibold text-base',
-  }[variant];
+  const colors = {
+    primary: isDark ? '#60a5fa' : '#1e3a5f',
+    foreground: isDark ? '#f1f5f9' : '#1e293b',
+    muted: isDark ? '#1e293b' : '#f1f3f5',
+    border: isDark ? '#334155' : '#e2e8f0',
+  };
+
+  const bgMap = {
+    primary: { backgroundColor: colors.primary },
+    secondary: { backgroundColor: colors.muted },
+    outline: { backgroundColor: 'transparent', borderWidth: 2, borderColor: colors.primary },
+    ghost: { backgroundColor: 'transparent' },
+  };
+
+  const textColorMap = {
+    primary: '#ffffff',
+    secondary: colors.foreground,
+    outline: colors.primary,
+    ghost: colors.primary,
+  };
+
+  const spinnerColor = variant === 'primary' ? '#ffffff' : colors.primary;
 
   return (
     <TouchableOpacity
-      className={`${baseClass} ${variantClass} ${disabled ? 'opacity-50' : ''} ${className || ''}`}
+      style={[
+        s.base,
+        bgMap[variant],
+        disabled ? { opacity: 0.5 } : undefined,
+        style,
+      ]}
       disabled={disabled || loading}
       activeOpacity={0.7}
       {...props}
@@ -39,9 +52,27 @@ export function Button({ title, variant = 'primary', loading, icon, disabled, cl
       ) : (
         <>
           {icon}
-          <Text className={`${textClass} ${icon ? 'ml-2' : ''}`}>{title}</Text>
+          <Text style={[s.text, { color: textColorMap[variant] }, icon ? { marginLeft: 8 } : undefined]}>
+            {title}
+          </Text>
         </>
       )}
     </TouchableOpacity>
   );
 }
+
+const s = StyleSheet.create({
+  base: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 8,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    minHeight: 48,
+  },
+  text: {
+    fontWeight: '600',
+    fontSize: 16,
+  },
+});

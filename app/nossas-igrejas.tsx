@@ -1,149 +1,478 @@
-import React from "react";
-import { FlatList, View, Text, Pressable } from "react-native";
+import React, { useState } from "react";
+import { FlatList, View, Text, Pressable, Modal, StyleSheet } from "react-native";
 import * as Linking from "expo-linking";
-import { Image } from "expo-image";
+import { Image, ImageSource } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
 import { useQuery } from "@tanstack/react-query";
-import { MapPin, Phone, Clock, ExternalLink } from "lucide-react-native";
-import { Card, CardContent } from "@/components/ui/Card";
+import { MapPin, Phone, Clock, ExternalLink, Maximize2, X } from "lucide-react-native";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { getIgrejasAtivas } from "@/services/igrejaService";
 import { AppFooter } from "@/components/AppFooter";
 import { useTheme } from "@/hooks/useTheme";
+import { resolveIgrejaImage } from "@/utils/igrejaImages";
 import type { Igreja } from "@/types";
 
-function IgrejaCard({ igreja }: { igreja: Igreja }) {
-  const { isDark } = useTheme();
-  const iconPrimary = isDark ? "#60a5fa" : "#1e3a5f";
+/* ── Skeleton matching web design ── */
+
+function IgrejaCardSkeleton({ c }: { c: Record<string, string> }) {
+  return (
+    <View
+      style={[
+        s.cardWrapper,
+        { backgroundColor: c.cardBg, borderColor: c.cardBorder },
+      ]}
+    >
+      <Skeleton width="100%" height={200} borderRadius={0} />
+      <View style={{ padding: 24, gap: 16 }}>
+        <Skeleton width="75%" height={24} borderRadius={6} />
+        <View style={{ gap: 12 }}>
+          <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 12 }}>
+            <Skeleton width={20} height={20} borderRadius={4} />
+            <View style={{ flex: 1, gap: 4 }}>
+              <Skeleton width={80} height={16} borderRadius={4} />
+              <Skeleton width="100%" height={12} borderRadius={4} />
+            </View>
+          </View>
+          <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 12 }}>
+            <Skeleton width={20} height={20} borderRadius={4} />
+            <View style={{ flex: 1, gap: 4 }}>
+              <Skeleton width={80} height={16} borderRadius={4} />
+              <Skeleton width={128} height={12} borderRadius={4} />
+            </View>
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+/* ── Church card matching web layout ── */
+
+function IgrejaCard({
+  igreja,
+  c,
+  isDark,
+  onImagePress,
+}: {
+  igreja: Igreja;
+  c: Record<string, string>;
+  isDark: boolean;
+  onImagePress: (source: ImageSource) => void;
+}) {
   const openMaps = () => {
-    if (igreja.latitude && igreja.longitude) {
+    if (igreja.latitude != null && igreja.longitude != null) {
       Linking.openURL(
         `https://www.google.com/maps/search/?api=1&query=${igreja.latitude},${igreja.longitude}`
       );
     }
   };
 
+  const imageSource = resolveIgrejaImage(igreja.imagem_url);
+
   return (
-    <Card className="mx-4 mb-4">
-      {igreja.imagem_url && (
-        <Image
-          source={{ uri: igreja.imagem_url }}
-          style={{ width: "100%", aspectRatio: 16 / 9 }}
-          contentFit="cover"
-          cachePolicy="disk"
-        />
+    <View
+      style={[
+        s.cardWrapper,
+        { backgroundColor: c.cardBg, borderColor: c.cardBorder },
+      ]}
+    >
+      {/* Imagem da Igreja */}
+      {imageSource ? (
+        <Pressable onPress={() => onImagePress(imageSource)}>
+          <Image
+            source={imageSource}
+            style={s.cardImage}
+            contentFit="cover"
+            cachePolicy="disk"
+          />
+          <View style={s.maximizeButton}>
+            <Maximize2 size={20} color="#ffffff" />
+          </View>
+        </Pressable>
+      ) : (
+        <LinearGradient
+          colors={
+            isDark
+              ? ["hsl(215, 75%, 25%)", "hsl(215, 65%, 35%)"]
+              : ["hsl(215, 75%, 28%)", "hsl(215, 65%, 45%)"]
+          }
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={s.cardImagePlaceholder}
+        >
+          <Text style={s.placeholderText}>{igreja.nome}</Text>
+        </LinearGradient>
       )}
-      <CardContent>
-        <Text className="text-xl font-bold text-foreground mb-1">
+
+      {/* Informações */}
+      <View style={s.infoContainer}>
+        <Text style={[s.churchName, { color: c.foreground }]}>
           {igreja.nome}
           {igreja.bairro ? ` - ${igreja.bairro}` : ""}
         </Text>
-        <View className="h-0.5 bg-primary/30 my-3" />
 
-        <View className="flex-row items-start gap-2 mb-2">
-          <MapPin size={16} color={iconPrimary} />
-          <View className="flex-1">
-            <Text className="text-sm font-medium text-foreground">Endereço</Text>
-            <Text className="text-sm text-muted-foreground">
-              {igreja.endereco}
-              {igreja.cidade ? `\n${igreja.cidade}${igreja.cep ? `, CEP ${igreja.cep}` : ""}` : ""}
-            </Text>
-          </View>
-        </View>
+        <View style={[s.divider, { backgroundColor: c.divider }]} />
 
-        {(igreja.telefone || igreja.whatsapp) && (
-          <View className="flex-row items-start gap-2 mb-2">
-            <Phone size={16} color={iconPrimary} />
-            <View>
-              <Text className="text-sm font-medium text-foreground">Telefone</Text>
-              <Text className="text-sm text-muted-foreground">
-                {igreja.telefone || igreja.whatsapp}
+        <View style={s.infoRows}>
+          {/* Endereço */}
+          <View style={s.infoRow}>
+            <MapPin size={20} color={c.primary} style={{ marginTop: 2 }} />
+            <View style={{ flex: 1 }}>
+              <Text style={[s.infoLabel, { color: c.foreground }]}>Endereço</Text>
+              <Text style={[s.infoValue, { color: c.muted }]}>
+                {igreja.endereco}
+                {igreja.cidade
+                  ? `\n${igreja.cidade}${igreja.cep ? `, CEP ${igreja.cep}` : ""}`
+                  : ""}
               </Text>
             </View>
           </View>
-        )}
 
-        {igreja.horarios && (
-          <View className="flex-row items-start gap-2 mb-2">
-            <Clock size={16} color={iconPrimary} />
-            <View>
-              <Text className="text-sm font-medium text-foreground">Horários</Text>
-              <Text className="text-sm text-muted-foreground">{igreja.horarios}</Text>
+          {/* Telefone */}
+          {(igreja.telefone || igreja.whatsapp) && (
+            <View style={s.infoRow}>
+              <Phone size={20} color={c.primary} style={{ marginTop: 2 }} />
+              <View>
+                <Text style={[s.infoLabel, { color: c.foreground }]}>Telefone</Text>
+                <Text style={[s.infoValue, { color: c.muted }]}>
+                  {igreja.telefone || igreja.whatsapp}
+                </Text>
+              </View>
             </View>
+          )}
+
+          {/* Horários */}
+          {igreja.horarios && (
+            <View style={s.infoRow}>
+              <Clock size={20} color={c.primary} style={{ marginTop: 2 }} />
+              <View>
+                <Text style={[s.infoLabel, { color: c.foreground }]}>Horários</Text>
+                <Text style={[s.infoValue, { color: c.muted }]}>{igreja.horarios}</Text>
+              </View>
+            </View>
+          )}
+        </View>
+
+        {/* Pastor */}
+        {igreja.pastor && (
+          <View style={[s.pastorSection, { borderTopColor: c.cardBorder }]}>
+            <Text style={[s.infoLabel, { color: c.foreground, marginBottom: 8 }]}>
+              Pastor(a) Responsável:
+            </Text>
+            <Text style={[s.infoValue, { color: c.muted }]}>{igreja.pastor}</Text>
           </View>
         )}
 
-        {igreja.pastor && (
-          <View className="mt-3 pt-3 border-t border-border">
-            <Text className="text-sm font-medium text-foreground">
-              Pastor(a): {igreja.pastor}
+        {/* Botão Google Maps */}
+        {igreja.latitude != null && igreja.longitude != null ? (
+          <Pressable onPress={openMaps} style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}>
+            <View
+              style={[
+                s.mapsButton,
+                { backgroundColor: isDark ? "#367EE2" : "#123E7D" },
+              ]}
+            >
+              <ExternalLink size={16} color="#ffffff" />
+              <Text style={s.mapsButtonText}>Ver no Google Maps</Text>
+            </View>
+          </Pressable>
+        ) : (
+          <View
+            style={[s.mapsButton, { backgroundColor: isDark ? "#252C37" : "#F3F5F6" }]}
+          >
+            <Text style={[s.mapsButtonTextDisabled, { color: c.muted }]}>
+              Localização indisponível
             </Text>
           </View>
         )}
-
-        <Pressable
-          className={`mt-4 flex-row items-center justify-center gap-2 py-3 rounded-lg ${
-            igreja.latitude ? "bg-primary" : "bg-muted"
-          }`}
-          onPress={openMaps}
-          disabled={!igreja.latitude}
-          style={({ pressed }) => pressed && { opacity: 0.7 }}
-        >
-          <ExternalLink size={16} color={igreja.latitude ? "#ffffff" : "#94a3b8"} />
-          <Text className={`text-sm font-medium ${igreja.latitude ? "text-white" : "text-muted-foreground"}`}>
-            {igreja.latitude ? "Ver no Google Maps" : "Localização indisponível"}
-          </Text>
-        </Pressable>
-      </CardContent>
-    </Card>
+      </View>
+    </View>
   );
 }
 
+/* ── Fullscreen image modal (matching web) ── */
+
+function ImageModal({
+  visible,
+  source,
+  onClose,
+}: {
+  visible: boolean;
+  source: ImageSource;
+  onClose: () => void;
+}) {
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      statusBarTranslucent
+      onRequestClose={onClose}
+    >
+      <Pressable style={s.modalBackdrop} onPress={onClose}>
+        <Pressable style={s.modalCloseButton} onPress={onClose}>
+          <X size={24} color="#ffffff" />
+        </Pressable>
+        <Image
+          source={source}
+          style={s.modalImage}
+          contentFit="contain"
+          cachePolicy="disk"
+        />
+      </Pressable>
+    </Modal>
+  );
+}
+
+/* ── Main Screen ── */
+
 export default function NossasIgrejasScreen() {
+  const { isDark } = useTheme();
+  const [imagemFullscreen, setImagemFullscreen] = useState<ImageSource | null>(null);
+
+  const c = {
+    bg: isDark ? "#0E131B" : "#FFFFFF",
+    foreground: isDark ? "#FAFAFA" : "#1D2530",
+    muted: isDark ? "#9DA4AF" : "#627084",
+    primary: isDark ? "#367EE2" : "#123E7D",
+    cardBg: isDark ? "#171D26" : "#FFFFFF",
+    cardBorder: isDark ? "#29313D" : "#E2E5E9",
+    divider: isDark ? "rgba(54,126,226,0.3)" : "rgba(18,62,125,0.3)",
+  };
+
   const { data: igrejas, isLoading } = useQuery({
     queryKey: ["igrejas"],
     queryFn: getIgrejasAtivas,
-    staleTime: 1000 * 60 * 60 * 24, // 24h
+    staleTime: 1000 * 60 * 60 * 24,
   });
 
   if (isLoading) {
     return (
-      <View className="flex-1 bg-background p-4">
-        {[1, 2, 3].map((i) => (
-          <View key={i} className="mb-4">
-            <Skeleton width="100%" height={180} borderRadius={12} />
-            <View className="mt-3">
-              <Skeleton width="60%" height={20} />
-              <Skeleton width="80%" height={14} style={{ marginTop: 8 }} />
-            </View>
-          </View>
-        ))}
+      <View style={[s.container, { backgroundColor: c.bg }]}>
+        {/* Hero */}
+        <View style={s.heroSection}>
+          <Skeleton width="60%" height={36} borderRadius={8} />
+          <Skeleton
+            width="80%"
+            height={18}
+            borderRadius={6}
+            style={{ marginTop: 16 }}
+          />
+        </View>
+        {/* Skeleton cards */}
+        <View style={{ paddingHorizontal: 16, gap: 24 }}>
+          <IgrejaCardSkeleton c={c} />
+          <IgrejaCardSkeleton c={c} />
+          <IgrejaCardSkeleton c={c} />
+        </View>
       </View>
     );
   }
 
   return (
-    <FlatList
-      className="flex-1 bg-background"
-      data={igrejas}
-      keyExtractor={(item) => item.id}
-      renderItem={({ item }) => <IgrejaCard igreja={item} />}
-      ListHeaderComponent={
-        <View className="bg-primary px-4 py-8 items-center mb-4">
-          <Text className="text-3xl font-bold text-white mb-2 text-center">
-            Nossas Igrejas
-          </Text>
-          <Text className="text-lg text-white/80 text-center">
-            Encontre a sede mais próxima de você
-          </Text>
-        </View>
-      }
-      ListFooterComponent={<AppFooter />}
-      ListEmptyComponent={
-        <View className="items-center py-20">
-          <MapPin size={48} color="#94a3b8" />
-          <Text className="text-muted-foreground mt-4">Nenhuma igreja encontrada</Text>
-        </View>
-      }
-    />
+    <>
+      <FlatList
+        style={{ flex: 1, backgroundColor: c.bg }}
+        contentContainerStyle={{ paddingBottom: 0 }}
+        data={igrejas}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => (
+          <View style={{ paddingHorizontal: 16, marginBottom: 24 }}>
+            <IgrejaCard
+              igreja={item}
+              c={c}
+              isDark={isDark}
+              onImagePress={(source) => setImagemFullscreen(source)}
+            />
+          </View>
+        )}
+        ListHeaderComponent={
+          <View style={s.heroSection}>
+            <Text style={[s.heroTitle, { color: c.primary }]}>Nossas Igrejas</Text>
+            <Text style={[s.heroSubtitle, { color: c.muted }]}>
+              Encontre a sede mais próxima de você e venha nos visitar
+            </Text>
+          </View>
+        }
+        ListFooterComponent={<AppFooter />}
+        ListEmptyComponent={
+          <View style={s.emptyState}>
+            <MapPin size={48} color={c.muted} />
+            <Text style={[s.emptyText, { color: c.muted }]}>
+              Nenhuma igreja encontrada
+            </Text>
+          </View>
+        }
+      />
+
+      {/* Modal fullscreen da imagem */}
+      {imagemFullscreen && (
+        <ImageModal
+          visible={!!imagemFullscreen}
+          source={imagemFullscreen}
+          onClose={() => setImagemFullscreen(null)}
+        />
+      )}
+    </>
   );
 }
+
+/* ── Styles ── */
+
+const s = StyleSheet.create({
+  container: {
+    flex: 1,
+    paddingTop: 48,
+  },
+
+  /* Hero */
+  heroSection: {
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingTop: 48,
+    paddingBottom: 48,
+    marginBottom: 16,
+  },
+  heroTitle: {
+    fontSize: 36,
+    fontWeight: "bold",
+    textAlign: "center",
+    marginBottom: 16,
+  },
+  heroSubtitle: {
+    fontSize: 18,
+    textAlign: "center",
+    lineHeight: 28,
+    maxWidth: 500,
+  },
+
+  /* Card */
+  cardWrapper: {
+    borderRadius: 12,
+    borderWidth: 1,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  cardImage: {
+    width: "100%",
+    aspectRatio: 16 / 9,
+  },
+  cardImagePlaceholder: {
+    width: "100%",
+    aspectRatio: 16 / 9,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  placeholderText: {
+    fontSize: 20,
+    fontWeight: "600",
+    color: "#ffffff",
+    textAlign: "center",
+    paddingHorizontal: 24,
+  },
+  maximizeButton: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    padding: 8,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    borderRadius: 8,
+  },
+
+  /* Info */
+  infoContainer: {
+    padding: 24,
+    gap: 0,
+  },
+  churchName: {
+    fontSize: 20,
+    fontWeight: "bold",
+  },
+  divider: {
+    height: 2,
+    width: "100%",
+    marginVertical: 16,
+    borderRadius: 1,
+  },
+  infoRows: {
+    gap: 12,
+  },
+  infoRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
+  },
+  infoLabel: {
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  infoValue: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+
+  /* Pastor */
+  pastorSection: {
+    marginTop: 24,
+    paddingTop: 24,
+    borderTopWidth: 1,
+  },
+
+  /* Maps button */
+  mapsButton: {
+    marginTop: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    minHeight: 48,
+  },
+  mapsButtonText: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#ffffff",
+  },
+  mapsButtonTextDisabled: {
+    fontSize: 14,
+    fontWeight: "500",
+  },
+
+  /* Empty */
+  emptyState: {
+    alignItems: "center",
+    paddingVertical: 80,
+  },
+  emptyText: {
+    marginTop: 16,
+    fontSize: 16,
+  },
+
+  /* Modal */
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.9)",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 16,
+  },
+  modalCloseButton: {
+    position: "absolute",
+    top: 48,
+    right: 16,
+    padding: 8,
+    backgroundColor: "rgba(255,255,255,0.1)",
+    borderRadius: 8,
+    zIndex: 10,
+  },
+  modalImage: {
+    width: "100%",
+    height: "80%",
+  },
+});

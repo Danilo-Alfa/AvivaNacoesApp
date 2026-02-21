@@ -146,7 +146,7 @@ const gruposLouvor = [
 
 // ── Flip Card for Pastor ──
 
-function PastorCard({ pastor, c }: { pastor: typeof pastores[0]; c: Record<string, string> }) {
+function PastorCard({ pastor, c, isDark }: { pastor: typeof pastores[0]; c: Record<string, string>; isDark: boolean }) {
   const [isFlipped, setIsFlipped] = useState(false);
   const flipAnim = useRef(new Animated.Value(0)).current;
 
@@ -197,16 +197,37 @@ function PastorCard({ pastor, c }: { pastor: typeof pastores[0]; c: Record<strin
         </View>
       </Animated.View>
 
-      {/* Back - Description */}
+      {/* Back - Description with gradient bg (web: bg-gradient-to-br from-primary/10 to-accent/10) */}
       <Animated.View
         style={[
           s.flipFace,
           s.flipCardRounded,
-          { backgroundColor: c.cardBg, borderWidth: 1, borderColor: c.cardBorder },
+          { borderWidth: 1, borderColor: c.cardBorder },
           { transform: [{ perspective: 1000 }, { rotateY: backRotate }] },
         ]}
       >
-        <View style={s.backContent}>
+        <LinearGradient
+          colors={
+            isDark
+              ? ["rgba(54,126,226,0.12)", "rgba(245,158,11,0.12)"]
+              : ["#EEF3FB", "#FFF8EB"]
+          }
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[StyleSheet.absoluteFillObject, { borderRadius: 16 }]}
+        />
+        {/* Amber glow bottom-right corner */}
+        <LinearGradient
+          colors={
+            isDark
+              ? ["transparent", "rgba(245,158,11,0.18)"]
+              : ["transparent", "rgba(245,158,11,0.10)"]
+          }
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[StyleSheet.absoluteFillObject, { borderRadius: 16 }]}
+        />
+        <View style={[s.backContent, { backgroundColor: isDark ? "rgba(23,29,38,0.80)" : "transparent" }]}>
           <View style={s.letterAvatar}>
             <Text style={s.letterAvatarText}>
               {pastor.nome.charAt(0)}
@@ -242,18 +263,19 @@ export default function QuemSomosScreen() {
   const { width } = useWindowDimensions();
   const { isDark } = useTheme();
 
-  // Dark-mode adaptive colors
+  // Dark-mode adaptive colors (aligned with home page / web CSS)
   const c = {
-    bg: isDark ? "#0e1219" : "#ffffff",
-    foreground: isDark ? "#f1f5f9" : "#1e293b",
-    muted: isDark ? "#94a3b8" : "#64748b",
-    primary: isDark ? "#60a5fa" : "#1e3a5f",
-    accent: "#d4922a",
-    cardBg: isDark ? "#1e293b" : "#ffffff",
-    cardBorder: isDark ? "#334155" : "#f1f5f9",
-    mutedBg: isDark ? "#334155" : "#f1f5f9",
-    valorCircleBg: isDark ? "rgba(212,146,42,0.15)" : "#fef3c7",
-    valorNumber: isDark ? "#fbbf24" : "#d4922a",
+    bg: isDark ? "#0E131B" : "#FFFFFF",
+    foreground: isDark ? "#FAFAFA" : "#1D2530",
+    muted: isDark ? "#9DA4AF" : "#627084",
+    primary: isDark ? "#367EE2" : "#123E7D",
+    accent: "#f59e0b",
+    accentDark: "#d97706",
+    cardBg: isDark ? "#171D26" : "#FFFFFF",
+    cardBorder: isDark ? "#29313D" : "#E2E5E9",
+    mutedBg: isDark ? "#252C37" : "#F3F5F6",
+    valorCircleBg: isDark ? "rgba(245,158,11,0.15)" : "#fef3c7",
+    valorNumber: isDark ? "#fbbf24" : "#d97706",
   };
 
   return (
@@ -297,7 +319,7 @@ export default function QuemSomosScreen() {
               </Text>
             </View>
             <View style={[s.cardSoft, { backgroundColor: c.cardBg, borderColor: c.cardBorder }]}>
-              <Text style={[s.h2Card, { color: c.accent }]}>Nossa Visão</Text>
+              <Text style={[s.h2Card, { color: c.accentDark }]}>Nossa Visão</Text>
               <Text style={[s.bodyText, { color: c.muted }]}>
                 Ser uma igreja que rompe barreiras e alcança nações, transformando vidas através do poder do Evangelho, formando discípulos e expandindo o Reino de Deus além das fronteiras.
               </Text>
@@ -311,9 +333,14 @@ export default function QuemSomosScreen() {
           <View style={{ gap: 24 }}>
             {valores.map((valor, i) => (
               <View key={i} style={[s.cardSoft, { alignItems: "center", backgroundColor: c.cardBg, borderColor: c.cardBorder }]}>
-                <View style={[s.valorCircle, { backgroundColor: c.valorCircleBg }]}>
-                  <Text style={[s.valorNumber, { color: c.valorNumber }]}>{i + 1}</Text>
-                </View>
+                <LinearGradient
+                  colors={["#f59e0b", "#fbbf24"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={s.valorCircle}
+                >
+                  <Text style={[s.valorNumber, { color: "#ffffff" }]}>{i + 1}</Text>
+                </LinearGradient>
                 <Text style={[s.h3, { color: c.foreground }]}>{valor.titulo}</Text>
                 <Text style={[s.bodyText, { textAlign: "center", color: c.muted }]}>{valor.descricao}</Text>
               </View>
@@ -325,7 +352,7 @@ export default function QuemSomosScreen() {
         <View style={{ marginBottom: 64 }}>
           <Text style={[s.h2Center, { color: c.foreground }]}>Nossa Liderança</Text>
           {pastores.map((pastor, i) => (
-            <PastorCard key={i} pastor={pastor} c={c} />
+            <PastorCard key={i} pastor={pastor} c={c} isDark={isDark} />
           ))}
         </View>
 
@@ -561,7 +588,7 @@ const s = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: "#1e3a5f",
+    backgroundColor: "#123E7D",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 16,
@@ -578,14 +605,14 @@ const s = StyleSheet.create({
   },
   backCargo: {
     fontSize: 14,
-    color: "#d4922a",
+    color: "#d97706",
     fontWeight: "500",
     marginBottom: 16,
   },
   backDivider: {
     width: 48,
     height: 4,
-    backgroundColor: "#1e3a5f",
+    backgroundColor: "#123E7D",
     borderRadius: 2,
     marginBottom: 16,
   },

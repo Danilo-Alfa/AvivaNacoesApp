@@ -54,6 +54,7 @@ export default function HomeScreen() {
   const { width } = useWindowDimensions();
   const { isDark } = useTheme();
   const [proximoCulto, setProximoCulto] = useState(getProximoCulto());
+  const [versiculoAspect, setVersiculoAspect] = useState(4 / 5);
 
   const { data: versiculoDoDia, isLoading: loadingVersiculo } = useQuery({
     queryKey: ["versiculo-do-dia"],
@@ -100,11 +101,12 @@ export default function HomeScreen() {
       style={{ flex: 1, backgroundColor: c.bg }}
       showsVerticalScrollIndicator={false}
     >
-        {/* Hero Banner — web: min-h-[300px] */}
+        {/* Hero Banner */}
         <Image
-          source={require("../../assets/images/hero-bg.webp")}
-          style={{ width: "100%", height: 300 }}
+          source={require("../../assets/images/hero-bg.png")}
+          style={{ width: "100%", aspectRatio: 1.8 }}
           contentFit="cover"
+          contentPosition="center"
         />
 
         {/* Navigation Buttons — web: mt-4 gap-3 px-4 py-3 text-sm min-h-[44px] */}
@@ -258,11 +260,15 @@ export default function HomeScreen() {
                 <View style={[styles.cardContainer, { backgroundColor: c.cardBg, borderColor: c.softBorder }]}>
                   <Image
                     source={{ uri: versiculoDoDia.url_imagem }}
-                    style={{ width: "100%", aspectRatio: 4 / 5 }}
-                    contentFit="contain"
+                    style={{ width: "100%", aspectRatio: versiculoAspect }}
+                    contentFit="cover"
                     cachePolicy="disk"
+                    onLoad={(e) => {
+                      const { width: w, height: h } = e.source;
+                      if (w && h) setVersiculoAspect(w / h);
+                    }}
                   />
-                  <View style={{ padding: 16, alignItems: "center" }}>
+                  <View style={{ paddingHorizontal: 16, paddingVertical: 12, alignItems: "center" }}>
                     <Text style={[styles.versiculoTitulo, { color: c.primary }]}>
                       {getTituloVersiculo(versiculoDoDia)}
                     </Text>
@@ -396,6 +402,8 @@ const styles = StyleSheet.create({
   cultoColumn: {
     flex: 1,
     alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 8,
   },
   cultoDivider: {
     borderLeftWidth: 1,
@@ -408,6 +416,7 @@ const styles = StyleSheet.create({
   cultoValue: {
     fontSize: 18,
     fontWeight: "bold",
+    textAlign: "center",
   },
 
   /* Section Headings — web: text-2xl (24px), mb-4 (16px) */

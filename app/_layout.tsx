@@ -4,8 +4,8 @@ import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { View, ActivityIndicator } from "react-native";
 import { useColorScheme } from "nativewind";
-import { QueryClientProvider } from "@tanstack/react-query";
-import { queryClient } from "@/lib/queryClient";
+import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
+import { queryClient, asyncStoragePersister } from "@/lib/queryClient";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { initStorage, mmkvStorage } from "@/lib/storage";
 import { DrawerMenu } from "@/components/DrawerMenu";
@@ -61,7 +61,9 @@ function AppContent() {
         <Stack.Screen name="+not-found" />
       </Stack>
 
-      <LiveFAB />
+      <View pointerEvents="box-none" style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, zIndex: 50 }}>
+        <LiveFAB hidden={drawerOpen} />
+      </View>
       <DrawerMenu visible={drawerOpen} onClose={closeDrawer} />
       <Toast />
     </View>
@@ -86,11 +88,14 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <QueryClientProvider client={queryClient}>
+        <PersistQueryClientProvider
+          client={queryClient}
+          persistOptions={{ persister: asyncStoragePersister }}
+        >
           <DrawerProvider>
             <AppContent />
           </DrawerProvider>
-        </QueryClientProvider>
+        </PersistQueryClientProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

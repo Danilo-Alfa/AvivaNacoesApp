@@ -1,13 +1,23 @@
 import React from "react";
-import { ScrollView, View, Text, Pressable, useWindowDimensions } from "react-native";
-import { Image } from "expo-image";
+import {
+  ScrollView,
+  View,
+  Text,
+  Pressable,
+  StyleSheet,
+  useWindowDimensions,
+} from "react-native";
 import * as Linking from "expo-linking";
 import { useQuery } from "@tanstack/react-query";
-import { Clock, Play } from "lucide-react-native";
-import { Card, CardContent } from "@/components/ui/Card";
+import { Play } from "lucide-react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { YouTubePlayer } from "@/components/YouTubePlayer";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { getVideoDestaque, getVideosRecentes, getPlaylistsAtivas } from "@/services/videoService";
+import {
+  getVideoDestaque,
+  getVideosRecentes,
+  getPlaylistsAtivas,
+} from "@/services/videoService";
 import { AppFooter } from "@/components/AppFooter";
 import { getYouTubeVideoId } from "@/lib/constants";
 import { formatarDataRelativa } from "@/lib/utils";
@@ -16,8 +26,22 @@ import { useTheme } from "@/hooks/useTheme";
 export default function VideosScreen() {
   const { width } = useWindowDimensions();
   const { isDark } = useTheme();
-  const iconPrimary = isDark ? "#60a5fa" : "#1e3a5f";
-  const iconMuted = isDark ? "#94a3b8" : "#64748b";
+  const videoHeight = Math.round((width - 32) * 9 / 16);
+
+  const c = {
+    bg: isDark ? "#0E131B" : "#FFFFFF",
+    foreground: isDark ? "#FAFAFA" : "#1D2530",
+    muted: isDark ? "#9DA4AF" : "#627084",
+    primary: isDark ? "#367EE2" : "#123E7D",
+    accent: "#f59e0b",
+    cardBg: isDark ? "#171D26" : "#FFFFFF",
+    cardBorder: isDark ? "#29313D" : "#E2E5E9",
+    mutedBg: isDark ? "#252C37" : "#F3F5F6",
+    primaryLight: isDark
+      ? "rgba(54,126,226,0.10)"
+      : "rgba(18,62,125,0.10)",
+    white: "#FFFFFF",
+  };
 
   const { data: videoDestaque, isLoading: loadingDestaque } = useQuery({
     queryKey: ["video-destaque"],
@@ -39,24 +63,96 @@ export default function VideosScreen() {
 
   const isLoading = loadingDestaque || loadingRecentes;
 
+  const formatarDataCompleta = (dataString: string) => {
+    return new Date(dataString).toLocaleDateString("pt-BR", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+  };
+
+  // ── Skeleton Loading ──
+
   if (isLoading) {
     return (
-      <ScrollView className="flex-1 bg-background">
-        <View className="bg-primary px-4 py-8 items-center">
-          <Skeleton width={160} height={32} borderRadius={8} />
-          <Skeleton width={240} height={16} borderRadius={8} style={{ marginTop: 8 }} />
-        </View>
-        <View className="p-4">
-          <Skeleton width="100%" height={200} borderRadius={12} />
-          <View className="mt-4">
-            <Skeleton width="60%" height={24} />
-            <Skeleton width="100%" height={16} style={{ marginTop: 8 }} />
+      <ScrollView
+        style={{ flex: 1, backgroundColor: c.bg }}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={s.container}>
+          {/* Hero Skeleton */}
+          <View style={{ alignItems: "center", marginBottom: 48 }}>
+            <Skeleton width={160} height={40} borderRadius={8} />
+            <Skeleton
+              width={280}
+              height={16}
+              borderRadius={8}
+              style={{ marginTop: 12 }}
+            />
           </View>
-          <View className="mt-6 flex-row flex-wrap gap-3">
+
+          {/* Featured Video Skeleton */}
+          <View
+            style={[
+              s.card,
+              {
+                backgroundColor: c.cardBg,
+                borderColor: c.cardBorder,
+                marginBottom: 24,
+              },
+            ]}
+          >
+            <Skeleton width="100%" height={videoHeight} borderRadius={0} />
+            <View style={{ padding: 12 }}>
+              <Skeleton width="70%" height={20} borderRadius={6} />
+              <Skeleton
+                width={140}
+                height={12}
+                borderRadius={6}
+                style={{ marginTop: 8 }}
+              />
+            </View>
+          </View>
+
+          {/* Section Title Skeleton */}
+          <Skeleton
+            width={180}
+            height={24}
+            borderRadius={6}
+            style={{ marginBottom: 16 }}
+          />
+
+          {/* Video Cards Skeleton */}
+          <View style={{ gap: 12 }}>
             {[1, 2, 3, 4].map((i) => (
-              <View key={i} className="w-[48%]">
-                <Skeleton width="100%" height={100} borderRadius={8} />
-                <Skeleton width="80%" height={14} style={{ marginTop: 8 }} />
+              <View
+                key={i}
+                style={[
+                  s.card,
+                  {
+                    backgroundColor: c.cardBg,
+                    borderColor: c.cardBorder,
+                  },
+                ]}
+              >
+                <Skeleton
+                  width="100%"
+                  height={videoHeight}
+                  borderRadius={0}
+                />
+                <View style={{ padding: 12 }}>
+                  <Skeleton width="80%" height={16} borderRadius={6} />
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      justifyContent: "space-between",
+                      marginTop: 8,
+                    }}
+                  >
+                    <Skeleton width={100} height={12} borderRadius={6} />
+                    <Skeleton width={60} height={12} borderRadius={6} />
+                  </View>
+                </View>
               </View>
             ))}
           </View>
@@ -65,144 +161,184 @@ export default function VideosScreen() {
     );
   }
 
-  return (
-    <ScrollView className="flex-1 bg-background">
-      {/* Hero */}
-      <View className="bg-primary px-4 py-8 items-center">
-        <Text className="text-3xl font-bold text-white mb-2 text-center">
-          Vídeos
-        </Text>
-        <Text className="text-lg text-white/80 text-center">
-          Pregações, louvores e momentos especiais
-        </Text>
-      </View>
+  // ── Main Content ──
 
-      <View className="px-4 py-4">
-        {/* Video Destaque */}
-        {videoDestaque && (() => {
-          const videoId = getYouTubeVideoId(videoDestaque.url_video);
-          return videoId ? (
-            <Card className="mb-6">
-              <CardContent className="p-0">
-                <View className="rounded-t-xl overflow-hidden">
-                  <YouTubePlayer videoId={videoId} height={width * 0.52} />
-                </View>
-                <View className="p-4">
-                  <Text className="text-xl font-bold text-foreground mb-1">
+  return (
+    <ScrollView
+      style={{ flex: 1, backgroundColor: c.bg }}
+      showsVerticalScrollIndicator={false}
+    >
+      <View style={s.container}>
+        {/* Hero Section */}
+        <View style={{ alignItems: "center", marginBottom: 48 }}>
+          <Text style={[s.heroTitle, { color: c.primary }]}>Vídeos</Text>
+          <Text style={[s.heroSubtitle, { color: c.muted }]}>
+            Assista às mensagens, testemunhos e momentos especiais da nossa
+            igreja
+          </Text>
+        </View>
+
+        {/* Vídeo em Destaque */}
+        {videoDestaque &&
+          (() => {
+            const videoId = getYouTubeVideoId(videoDestaque.url_video);
+            return videoId ? (
+              <View
+                style={[
+                  s.card,
+                  {
+                    backgroundColor: c.cardBg,
+                    borderColor: c.cardBorder,
+                    marginBottom: 32,
+                  },
+                ]}
+              >
+                <YouTubePlayer videoId={videoId} height={videoHeight} />
+                <View style={s.featuredBody}>
+                  <Text
+                    style={[s.featuredTitle, { color: c.foreground }]}
+                  >
                     {videoDestaque.titulo}
                   </Text>
-                  {videoDestaque.descricao && (
-                    <Text className="text-sm text-muted-foreground mb-2" numberOfLines={2}>
-                      {videoDestaque.descricao}
+                  {videoDestaque.data_publicacao && (
+                    <Text style={[s.metaText, { color: c.muted }]}>
+                      {formatarDataCompleta(videoDestaque.data_publicacao)}
                     </Text>
                   )}
-                  <View className="flex-row items-center gap-2">
-                    {videoDestaque.duracao && (
-                      <View className="flex-row items-center gap-1">
-                        <Clock size={12} color={iconMuted} />
-                        <Text className="text-xs text-muted-foreground">{videoDestaque.duracao}</Text>
-                      </View>
-                    )}
-                  </View>
                 </View>
-              </CardContent>
-            </Card>
-          ) : null;
-        })()}
+              </View>
+            ) : null;
+          })()}
 
-        {/* Videos Recentes */}
+        {/* Vídeos Recentes */}
         {videosRecentes && videosRecentes.length > 0 && (
-          <>
-            <Text className="text-2xl font-bold text-foreground mb-4">
+          <View style={{ marginBottom: 32 }}>
+            <Text style={[s.sectionTitle, { color: c.foreground }]}>
               Vídeos Recentes
             </Text>
-            <View className="flex-row flex-wrap gap-3 mb-6">
+            <View style={{ gap: 12 }}>
               {videosRecentes.map((video) => {
                 const videoId = getYouTubeVideoId(video.url_video);
-                const thumb = video.thumbnail_url || (videoId ? `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg` : null);
+                if (!videoId) return null;
                 return (
-                  <Pressable
+                  <View
                     key={video.id}
-                    className="w-[48%]"
-                    onPress={() => {
-                      if (videoId) Linking.openURL(`https://www.youtube.com/watch?v=${videoId}`);
-                    }}
-                    style={({ pressed }) => pressed && { opacity: 0.7 }}
+                    style={[
+                      s.card,
+                      {
+                        backgroundColor: c.cardBg,
+                        borderColor: c.cardBorder,
+                      },
+                    ]}
                   >
-                    <Card>
-                      <CardContent className="p-0">
-                        {thumb && (
-                          <Image
-                            source={{ uri: thumb }}
-                            style={{ width: "100%", aspectRatio: 16 / 9 }}
-                            contentFit="cover"
-                            cachePolicy="disk"
-                          />
+                    <YouTubePlayer videoId={videoId} height={videoHeight} />
+                    <View style={s.videoCardBody}>
+                      <Text
+                        style={[s.videoCardTitle, { color: c.foreground }]}
+                        numberOfLines={2}
+                      >
+                        {video.titulo}
+                      </Text>
+                      <View style={s.videoCardFooter}>
+                        <Text
+                          style={[
+                            s.videoCardMeta,
+                            { color: c.muted, flex: 1, marginRight: 8 },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {video.pregador || "Avivamento para as Nações"}
+                        </Text>
+                        {(video.data_publicacao || video.created_at) && (
+                          <Text
+                            style={[s.videoCardMeta, { color: c.muted }]}
+                          >
+                            {formatarDataRelativa(
+                              video.data_publicacao || video.created_at
+                            )}
+                          </Text>
                         )}
-                        <View className="p-3">
-                          <Text className="text-sm font-semibold text-foreground" numberOfLines={2}>
-                            {video.titulo}
-                          </Text>
-                          <Text className="text-xs text-muted-foreground mt-1">
-                            {video.pregador || "Avivamento para as Nações"}
-                          </Text>
-                          {video.created_at && (
-                            <Text className="text-xs text-muted-foreground mt-0.5">
-                              {formatarDataRelativa(video.created_at)}
-                            </Text>
-                          )}
-                        </View>
-                      </CardContent>
-                    </Card>
-                  </Pressable>
+                      </View>
+                    </View>
+                  </View>
                 );
               })}
             </View>
-          </>
+          </View>
         )}
 
-        {/* Playlists */}
+        {/* Séries e Playlists */}
         {playlists && playlists.length > 0 && (
-          <>
-            <Text className="text-2xl font-bold text-foreground mb-4">
+          <View>
+            <Text style={[s.sectionTitle, { color: c.foreground }]}>
               Séries e Playlists
             </Text>
-            {playlists.map((playlist) => (
-              <Pressable
-                key={playlist.id}
-                onPress={() => Linking.openURL(playlist.url_playlist)}
-                style={({ pressed }) => pressed && { opacity: 0.7 }}
-                className="mb-3"
-              >
-                <Card>
-                  <CardContent className="p-0">
-                    <View className="flex-row">
-                      <View className="w-24 bg-primary items-center justify-center p-4">
-                        <Text className="text-3xl font-bold text-white">
-                          {playlist.quantidade_videos}
+            <View style={{ gap: 12 }}>
+              {playlists.map((playlist) => (
+                <Pressable
+                  key={playlist.id}
+                  onPress={() =>
+                    Linking.openURL(playlist.url_playlist)
+                  }
+                  style={({ pressed }) => [
+                    s.card,
+                    {
+                      backgroundColor: c.cardBg,
+                      borderColor: c.cardBorder,
+                    },
+                    pressed && { opacity: 0.7 },
+                  ]}
+                >
+                  <View style={{ flexDirection: "row" }}>
+                    <LinearGradient
+                      colors={["#1e3a5f", "#2d5a8e"]}
+                      style={s.playlistLeftBar}
+                    >
+                      <Text style={s.playlistCount}>
+                        {playlist.quantidade_videos}
+                      </Text>
+                      <Text style={s.playlistCountLabel}>
+                        vídeos
+                      </Text>
+                    </LinearGradient>
+                    <View style={s.playlistContent}>
+                      <Text
+                        style={[
+                          s.playlistTitle,
+                          { color: c.foreground },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {playlist.nome}
+                      </Text>
+                      {playlist.descricao && (
+                        <Text
+                          style={[
+                            s.playlistDesc,
+                            { color: c.muted },
+                          ]}
+                          numberOfLines={2}
+                        >
+                          {playlist.descricao}
                         </Text>
-                        <Text className="text-xs text-white/80">vídeos</Text>
-                      </View>
-                      <View className="flex-1 p-4">
-                        <Text className="text-lg font-bold text-foreground" numberOfLines={1}>
-                          {playlist.nome}
+                      )}
+                      <View style={s.playlistCta}>
+                        <Text
+                          style={[
+                            s.playlistCtaText,
+                            { color: c.primary },
+                          ]}
+                        >
+                          Ver Playlist
                         </Text>
-                        {playlist.descricao && (
-                          <Text className="text-xs text-muted-foreground mt-1" numberOfLines={2}>
-                            {playlist.descricao}
-                          </Text>
-                        )}
-                        <View className="flex-row items-center gap-1 mt-2">
-                          <Text className="text-sm font-semibold text-primary">Ver Playlist</Text>
-                          <Play size={14} color={iconPrimary} />
-                        </View>
+                        <Play size={12} color={c.primary} />
                       </View>
                     </View>
-                  </CardContent>
-                </Card>
-              </Pressable>
-            ))}
-          </>
+                  </View>
+                </Pressable>
+              ))}
+            </View>
+          </View>
         )}
       </View>
 
@@ -210,3 +346,134 @@ export default function VideosScreen() {
     </ScrollView>
   );
 }
+
+// ── Styles ──
+
+const s = StyleSheet.create({
+  container: {
+    paddingHorizontal: 16,
+    paddingTop: 48,
+    paddingBottom: 48,
+  },
+  heroTitle: {
+    fontSize: 36,
+    fontWeight: "bold",
+    textAlign: "center",
+    marginBottom: 12,
+  },
+  heroSubtitle: {
+    fontSize: 16,
+    textAlign: "center",
+    lineHeight: 24,
+    maxWidth: 340,
+  },
+  sectionTitle: {
+    fontSize: 22,
+    fontWeight: "bold",
+    marginBottom: 16,
+  },
+
+  // Cards
+  card: {
+    borderRadius: 16,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+
+  // Featured video
+  featuredBody: {
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    paddingBottom: 12,
+  },
+  featuredTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    marginBottom: 4,
+  },
+  featuredDesc: {
+    fontSize: 13,
+    lineHeight: 20,
+    marginBottom: 8,
+  },
+  metaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  metaItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  metaText: {
+    fontSize: 12,
+  },
+
+  // Video card (recent)
+  videoCardBody: {
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    paddingBottom: 12,
+  },
+  videoCardTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    marginBottom: 6,
+  },
+  videoCardFooter: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  videoCardMeta: {
+    fontSize: 11,
+  },
+
+  // Playlists
+  playlistLeftBar: {
+    width: 96,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 20,
+  },
+  playlistCount: {
+    fontSize: 28,
+    fontWeight: "bold",
+    color: "#FFFFFF",
+  },
+  playlistCountLabel: {
+    fontSize: 11,
+    color: "rgba(255,255,255,0.85)",
+    marginTop: 2,
+  },
+  playlistContent: {
+    flex: 1,
+    padding: 16,
+    justifyContent: "center",
+  },
+  playlistTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  playlistDesc: {
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: 4,
+  },
+  playlistCta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: 10,
+  },
+  playlistCtaText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+});
