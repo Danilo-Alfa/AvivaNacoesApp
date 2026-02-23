@@ -43,7 +43,7 @@ function JornalSkeleton({ c }: { c: Record<string, string> }) {
   return (
     <ScrollView style={{ flex: 1, backgroundColor: c.bg }}>
       <View style={[s.heroBanner, { backgroundColor: c.bg }]}>
-        <Skeleton width={200} height={80} borderRadius={12} />
+        <Skeleton width={SCREEN_WIDTH - 32} height={(SCREEN_WIDTH - 32) * 0.3} borderRadius={12} />
       </View>
       <View style={{ paddingHorizontal: 16 }}>
         <View
@@ -113,7 +113,11 @@ export default function JornalScreen() {
       <ScrollView style={{ flex: 1, backgroundColor: c.bg }}>
         <View style={[s.heroBanner, { backgroundColor: c.bg }]}>
           <Image
-            source={require("../assets/logos/joan.png")}
+            source={
+              isDark
+                ? require("../assets/logos/joan-dark.png")
+                : require("../assets/logos/joan-light.jpeg")
+            }
             style={s.heroLogo}
             contentFit="contain"
           />
@@ -142,7 +146,11 @@ export default function JornalScreen() {
       {/* ── Hero Banner com Logo JOAN ── */}
       <View style={[s.heroBanner, { backgroundColor: c.bg }]}>
         <Image
-          source={require("../assets/logos/joan.png")}
+          source={
+            isDark
+              ? require("../assets/logos/joan-dark.png")
+              : require("../assets/logos/joan-light.jpeg")
+          }
           style={s.heroLogo}
           contentFit="contain"
         />
@@ -304,8 +312,8 @@ const s = StyleSheet.create({
     paddingHorizontal: 16,
   },
   heroLogo: {
-    width: SCREEN_WIDTH * 0.65,
-    height: 80,
+    width: SCREEN_WIDTH - 32,
+    height: (SCREEN_WIDTH - 32) * 0.3,
   },
 
   // Featured Card
