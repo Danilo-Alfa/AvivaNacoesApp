@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { FlatList, View, Text, Pressable, Modal, StyleSheet } from "react-native";
 import * as Linking from "expo-linking";
 import { Image, ImageSource } from "expo-image";
@@ -8,7 +8,8 @@ import { MapPin, Phone, Clock, ExternalLink, Maximize2, X } from "lucide-react-n
 import { Skeleton } from "@/components/ui/Skeleton";
 import { getIgrejasAtivas } from "@/services/igrejaService";
 import { AppFooter } from "@/components/AppFooter";
-import { useTheme } from "@/hooks/useTheme";
+import { useThemeForScreen } from "@/hooks/useThemeForScreen";
+import { useScreenReady } from "@/hooks/useScreenReady";
 import { resolveIgrejaImage } from "@/utils/igrejaImages";
 import type { Igreja } from "@/types";
 
@@ -227,10 +228,11 @@ function ImageModal({
 /* ── Main Screen ── */
 
 export default function NossasIgrejasScreen() {
-  const { isDark } = useTheme();
+  const { isDark } = useThemeForScreen();
+  const screenReady = useScreenReady();
   const [imagemFullscreen, setImagemFullscreen] = useState<ImageSource | null>(null);
 
-  const c = {
+  const c = useMemo(() => ({
     bg: isDark ? "#0E131B" : "#FFFFFF",
     foreground: isDark ? "#FAFAFA" : "#1D2530",
     muted: isDark ? "#9DA4AF" : "#627084",
@@ -238,7 +240,7 @@ export default function NossasIgrejasScreen() {
     cardBg: isDark ? "#171D26" : "#FFFFFF",
     cardBorder: isDark ? "#29313D" : "#E2E5E9",
     divider: isDark ? "rgba(54,126,226,0.3)" : "rgba(18,62,125,0.3)",
-  };
+  }), [isDark]);
 
   const { data: igrejas, isLoading } = useQuery({
     queryKey: ["igrejas"],
@@ -246,7 +248,7 @@ export default function NossasIgrejasScreen() {
     staleTime: 1000 * 60 * 60 * 24,
   });
 
-  if (isLoading) {
+  if (!screenReady || isLoading) {
     return (
       <View style={[s.container, { backgroundColor: c.bg }]}>
         {/* Hero */}

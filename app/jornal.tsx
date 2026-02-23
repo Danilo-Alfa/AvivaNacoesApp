@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useMemo, useEffect } from "react";
 import {
   ScrollView,
   View,
@@ -15,7 +15,8 @@ import { FileText, ExternalLink } from "lucide-react-native";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { getUltimosJornais } from "@/services/jornalService";
 import { AppFooter } from "@/components/AppFooter";
-import { useTheme } from "@/hooks/useTheme";
+import { useThemeForScreen } from "@/hooks/useThemeForScreen";
+import { useScreenReady } from "@/hooks/useScreenReady";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -74,36 +75,103 @@ function JornalSkeleton({ c }: { c: Record<string, string> }) {
   );
 }
 
+// ── Memoized previous edition card ──
+
+const EdicaoAnteriorCard = React.memo(function EdicaoAnteriorCard({
+  jornal,
+  c,
+  onPress,
+}: {
+  jornal: { id: string; titulo: string | null; data: string; url_pdf: string };
+  c: Record<string, string>;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => pressed && { opacity: 0.8 }}
+    >
+      <View
+        style={[
+          s.listCard,
+          {
+            backgroundColor: c.cardBg,
+            borderColor: c.cardBorder,
+          },
+        ]}
+      >
+        <View style={[s.listIcon, { backgroundColor: c.primary }]}>
+          <FileText size={24} color="#fff" />
+        </View>
+        <View style={s.listInfo}>
+          <Text
+            style={[s.listTitle, { color: c.foreground }]}
+            numberOfLines={1}
+          >
+            {jornal.titulo || "Jornal"}
+          </Text>
+          <Text style={[s.listDate, { color: c.muted }]}>
+            {new Date(
+              jornal.data + "T00:00:00"
+            ).toLocaleDateString("pt-BR", {
+              day: "numeric",
+              month: "long",
+              year: "numeric",
+            })}
+          </Text>
+        </View>
+        <ExternalLink size={18} color={c.muted} />
+      </View>
+    </Pressable>
+  );
+});
+
 // ── Tela Principal ──
 
 export default function JornalScreen() {
-  const { isDark } = useTheme();
+  const { isDark } = useThemeForScreen();
   const [webviewCarregando, setWebviewCarregando] = useState(true);
+  const [shouldLoadWebView, setShouldLoadWebView] = useState(false);
 
-  const c = {
-    bg: isDark ? "#0E131B" : "#FFFFFF",
-    foreground: isDark ? "#FAFAFA" : "#1D2530",
-    muted: isDark ? "#94a3b8" : "#64748b",
-    mutedBg: isDark ? "#1e293b" : "#f1f3f5",
-    primary: isDark ? "#3b82f6" : "#1e3a5f",
-    primaryFg: "#ffffff",
-    cardBg: isDark ? "#171D26" : "#FFFFFF",
-    cardBorder: isDark ? "#29313D" : "#E2E5E9",
-  };
+  const screenReady = useScreenReady();
+
+  // Lazy load WebView: delay mounting until after initial render
+  useEffect(() => {
+    const timer = setTimeout(() => setShouldLoadWebView(true), 300);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const c = useMemo(
+    () => ({
+      bg: isDark ? "#0E131B" : "#FFFFFF",
+      foreground: isDark ? "#FAFAFA" : "#1D2530",
+      muted: isDark ? "#94a3b8" : "#64748b",
+      mutedBg: isDark ? "#1e293b" : "#f1f3f5",
+      primary: isDark ? "#3b82f6" : "#1e3a5f",
+      primaryFg: "#ffffff",
+      cardBg: isDark ? "#171D26" : "#FFFFFF",
+      cardBorder: isDark ? "#29313D" : "#E2E5E9",
+    }),
+    [isDark]
+  );
 
   const { data: jornais, isLoading } = useQuery({
     queryKey: ["jornais"],
     queryFn: getUltimosJornais,
-    staleTime: 1000 * 60 * 60 * 24 * 3, // 3 dias (atualiza todo domingo)
-    gcTime: 1000 * 60 * 60 * 24 * 7, // mantém no cache por 7 dias
+    staleTime: 1000 * 60 * 60 * 24 * 3,
+    gcTime: 1000 * 60 * 60 * 24 * 7,
   });
 
   const handleOpenJornal = useCallback((url: string) => {
     Linking.openURL(url);
   }, []);
 
+  const handleWebViewLoaded = useCallback(() => {
+    setWebviewCarregando(false);
+  }, []);
+
   // ── Loading ──
-  if (isLoading) {
+  if (!screenReady || isLoading) {
     return <JornalSkeleton c={c} />;
   }
 
@@ -142,6 +210,7 @@ export default function JornalScreen() {
       style={{ flex: 1, backgroundColor: c.bg }}
       contentContainerStyle={{ paddingBottom: 16 }}
       showsVerticalScrollIndicator={false}
+      removeClippedSubviews
     >
       {/* ── Hero Banner com Logo JOAN ── */}
       <View style={[s.heroBanner, { backgroundColor: c.bg }]}>
@@ -167,7 +236,7 @@ export default function JornalScreen() {
           {/* Área de Visualização */}
           <View style={[s.webviewWrapper, { backgroundColor: c.mutedBg }]}>
             <View style={[s.webviewContainer, { backgroundColor: c.bg }]}>
-              {webviewCarregando && (
+              {(webviewCarregando || !shouldLoadWebView) && (
                 <View
                   style={[
                     s.webviewLoading,
@@ -180,26 +249,28 @@ export default function JornalScreen() {
                   </Text>
                 </View>
               )}
-              <WebView
-                source={{ uri: embedUrl }}
-                style={{
-                  flex: 1,
-                  opacity: webviewCarregando ? 0 : 1,
-                }}
-                allowsFullScreenVideo
-                javaScriptEnabled
-                domStorageEnabled
-                allowsInlineMediaPlayback
-                nestedScrollEnabled
-                scalesPageToFit={ehPdf}
-                onLoadEnd={() => setWebviewCarregando(false)}
-                startInLoadingState={false}
-                originWhitelist={["*"]}
-                mixedContentMode="compatibility"
-                allowsBackForwardNavigationGestures={false}
-                cacheEnabled
-                cacheMode="LOAD_CACHE_ELSE_NETWORK"
-              />
+              {shouldLoadWebView && (
+                <WebView
+                  source={{ uri: embedUrl }}
+                  style={{
+                    flex: 1,
+                    opacity: webviewCarregando ? 0 : 1,
+                  }}
+                  allowsFullScreenVideo
+                  javaScriptEnabled
+                  domStorageEnabled
+                  allowsInlineMediaPlayback
+                  nestedScrollEnabled
+                  scalesPageToFit={ehPdf}
+                  onLoadEnd={handleWebViewLoaded}
+                  startInLoadingState={false}
+                  originWhitelist={["*"]}
+                  mixedContentMode="compatibility"
+                  allowsBackForwardNavigationGestures={false}
+                  cacheEnabled
+                  cacheMode="LOAD_CACHE_ELSE_NETWORK"
+                />
+              )}
             </View>
           </View>
 
@@ -248,48 +319,12 @@ export default function JornalScreen() {
             Edições Anteriores
           </Text>
           {anteriores.map((jornal) => (
-            <Pressable
+            <EdicaoAnteriorCard
               key={jornal.id}
+              jornal={jornal}
+              c={c}
               onPress={() => handleOpenJornal(jornal.url_pdf)}
-              style={({ pressed }) => pressed && { opacity: 0.8 }}
-            >
-              <View
-                style={[
-                  s.listCard,
-                  {
-                    backgroundColor: c.cardBg,
-                    borderColor: c.cardBorder,
-                  },
-                ]}
-              >
-                {/* Ícone azul */}
-                <View style={[s.listIcon, { backgroundColor: c.primary }]}>
-                  <FileText size={24} color="#fff" />
-                </View>
-
-                {/* Info */}
-                <View style={s.listInfo}>
-                  <Text
-                    style={[s.listTitle, { color: c.foreground }]}
-                    numberOfLines={1}
-                  >
-                    {jornal.titulo || "Jornal"}
-                  </Text>
-                  <Text style={[s.listDate, { color: c.muted }]}>
-                    {new Date(
-                      jornal.data + "T00:00:00"
-                    ).toLocaleDateString("pt-BR", {
-                      day: "numeric",
-                      month: "long",
-                      year: "numeric",
-                    })}
-                  </Text>
-                </View>
-
-                {/* Seta */}
-                <ExternalLink size={18} color={c.muted} />
-              </View>
-            </Pressable>
+            />
           ))}
         </View>
       )}

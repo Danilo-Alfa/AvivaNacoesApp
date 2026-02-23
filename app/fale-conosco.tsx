@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   ScrollView,
   View,
@@ -23,12 +23,21 @@ import { salvarMensagemContato } from "@/services/contatoService";
 import { CONTACT_INFO } from "@/lib/constants";
 import Toast from "react-native-toast-message";
 import { AppFooter } from "@/components/AppFooter";
-import { useTheme } from "@/hooks/useTheme";
+import { useThemeForScreen } from "@/hooks/useThemeForScreen";
+import { useScreenReady } from "@/hooks/useScreenReady";
 
 export default function FaleConoscoScreen() {
-  const { isDark } = useTheme();
+  const { isDark } = useThemeForScreen();
+  const screenReady = useScreenReady();
 
-  const c = {
+  const [nome, setNome] = useState("");
+  const [email, setEmail] = useState("");
+  const [telefone, setTelefone] = useState("");
+  const [assunto, setAssunto] = useState("");
+  const [mensagem, setMensagem] = useState("");
+  const [enviando, setEnviando] = useState(false);
+
+  const c = useMemo(() => ({
     bg: isDark ? "#0E131B" : "#FFFFFF",
     foreground: isDark ? "#FAFAFA" : "#1D2530",
     muted: isDark ? "#9DA4AF" : "#627084",
@@ -40,14 +49,11 @@ export default function FaleConoscoScreen() {
     inputText: isDark ? "#F1F5F9" : "#1E293B",
     placeholder: isDark ? "#64748b" : "#94a3b8",
     iconBg: isDark ? "rgba(54,126,226,0.12)" : "rgba(18,62,125,0.08)",
-  };
+  }), [isDark]);
 
-  const [nome, setNome] = useState("");
-  const [email, setEmail] = useState("");
-  const [telefone, setTelefone] = useState("");
-  const [assunto, setAssunto] = useState("");
-  const [mensagem, setMensagem] = useState("");
-  const [enviando, setEnviando] = useState(false);
+  if (!screenReady) {
+    return <View style={{ flex: 1, backgroundColor: c.bg }} />;
+  }
 
   const handleSubmit = async () => {
     if (!nome.trim() || !email.trim() || !assunto.trim() || !mensagem.trim()) {

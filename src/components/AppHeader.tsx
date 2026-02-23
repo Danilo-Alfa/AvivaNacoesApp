@@ -10,7 +10,7 @@ interface AppHeaderProps {
   scrolled?: boolean;
 }
 
-export function AppHeader({ onMenuPress, scrolled = false }: AppHeaderProps) {
+export const AppHeader = React.memo(function AppHeader({ onMenuPress, scrolled = false }: AppHeaderProps) {
   const insets = useSafeAreaInsets();
   const { isDark } = useTheme();
 
@@ -67,7 +67,7 @@ export function AppHeader({ onMenuPress, scrolled = false }: AppHeaderProps) {
       </View>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {

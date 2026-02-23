@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { ScrollView, View, Text, StyleSheet } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { Clock, MapPin } from "lucide-react-native";
@@ -6,12 +6,14 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { getProgramacaoAtiva } from "@/services/programacaoService";
 import { AppFooter } from "@/components/AppFooter";
 import { DIAS_SEMANA } from "@/lib/constants";
-import { useTheme } from "@/hooks/useTheme";
+import { useThemeForScreen } from "@/hooks/useThemeForScreen";
+import { useScreenReady } from "@/hooks/useScreenReady";
 
 export default function ProgramacaoScreen() {
-  const { isDark } = useTheme();
+  const { isDark } = useThemeForScreen();
+  const screenReady = useScreenReady();
 
-  const c = {
+  const c = useMemo(() => ({
     bg: isDark ? "#0E131B" : "#FFFFFF",
     foreground: isDark ? "#FAFAFA" : "#1D2530",
     muted: isDark ? "#9DA4AF" : "#627084",
@@ -23,7 +25,7 @@ export default function ProgramacaoScreen() {
     primaryLight: isDark ? "rgba(54,126,226,0.10)" : "rgba(18,62,125,0.10)",
     accentLight: isDark ? "rgba(245,158,11,0.10)" : "rgba(245,158,11,0.10)",
     primaryBorder: isDark ? "rgba(54,126,226,0.20)" : "rgba(18,62,125,0.20)",
-  };
+  }), [isDark]);
 
   const { data: programacao, isLoading } = useQuery({
     queryKey: ["programacao"],
@@ -40,7 +42,7 @@ export default function ProgramacaoScreen() {
 
   // ── Skeleton Loading ──
 
-  if (isLoading) {
+  if (!screenReady || isLoading) {
     return (
       <ScrollView style={{ flex: 1, backgroundColor: c.bg }} showsVerticalScrollIndicator={false}>
         <View style={{ paddingHorizontal: 16, paddingTop: 48, paddingBottom: 48 }}>

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo, useCallback } from "react";
 import {
   ScrollView,
   View,
@@ -25,14 +25,16 @@ import {
   contarViewersAtivos,
 } from "@/services/liveService";
 import { mmkvStorage } from "@/lib/storage";
-import { useTheme } from "@/hooks/useTheme";
+import { useThemeForScreen } from "@/hooks/useThemeForScreen";
+import { useScreenReady } from "@/hooks/useScreenReady";
 import type { LiveConfig } from "@/types";
 
 export default function LiveScreen() {
-  const { isDark } = useTheme();
+  const { isDark } = useThemeForScreen();
+  const screenReady = useScreenReady();
 
   // Theme colors — same pattern as index.tsx
-  const c = {
+  const c = useMemo(() => ({
     bg: isDark ? "#0e1219" : "#ffffff",
     foreground: isDark ? "#f1f5f9" : "#1e293b",
     muted: isDark ? "#94a3b8" : "#64748b",
@@ -44,7 +46,7 @@ export default function LiveScreen() {
     cardBorder: isDark ? "#334155" : "#e2e8f0",
     border: isDark ? "#334155" : "#e2e8f0",
     destructive: "#ef4444",
-  };
+  }), [isDark]);
 
   const { isOffline } = useNetworkStatus();
   const [isRegistered, setIsRegistered] = useState(false);
@@ -102,7 +104,7 @@ export default function LiveScreen() {
     };
   }, [isRegistered, sessionId]);
 
-  const handleRegistrar = async () => {
+  const handleRegistrar = useCallback(async () => {
     if (!nome.trim()) return;
     try {
       const newSessionId = gerarSessionId();
@@ -119,17 +121,17 @@ export default function LiveScreen() {
     } catch (error) {
       console.error("Erro ao registrar:", error);
     }
-  };
+  }, [nome, email]);
 
-  const handleCompartilharWhatsApp = () => {
+  const handleCompartilharWhatsApp = useCallback(() => {
     const msg =
       "Assista a live da Igreja Avivamento para as Nações! https://avivamentoparasnacoes.com.br/live";
     Linking.openURL(
       `https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`
     );
-  };
+  }, []);
 
-  const handleCopiarLink = async () => {
+  const handleCopiarLink = useCallback(async () => {
     try {
       await Share.share({
         message:
@@ -138,7 +140,7 @@ export default function LiveScreen() {
     } catch (_) {
       // user cancelled
     }
-  };
+  }, []);
 
   // ─── Sem conexão ───
   if (isOffline) {
@@ -156,7 +158,7 @@ export default function LiveScreen() {
   }
 
   // ─── Carregando ───
-  if (isLoading) {
+  if (!screenReady || isLoading) {
     return (
       <View style={[s.flex1Center, { backgroundColor: c.bg }]}>
         <View style={[s.card, { backgroundColor: c.cardBg, borderColor: c.cardBorder, marginHorizontal: 16, paddingVertical: 64 }]}>

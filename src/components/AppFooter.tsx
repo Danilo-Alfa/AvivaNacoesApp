@@ -3,7 +3,7 @@ import { View, Text, StyleSheet } from "react-native";
 import { Image } from "expo-image";
 import { useTheme } from "@/hooks/useTheme";
 
-export function AppFooter() {
+export const AppFooter = React.memo(function AppFooter() {
   const { isDark } = useTheme();
 
   const bgColor = isDark ? "rgba(30,41,59,0.3)" : "rgba(241,245,249,0.3)";
@@ -51,7 +51,7 @@ export function AppFooter() {
       </View>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {

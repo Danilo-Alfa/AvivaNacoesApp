@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo, useCallback } from "react";
 import {
   ScrollView,
   View,
@@ -24,7 +24,9 @@ import { AppFooter } from "@/components/AppFooter";
 import { versiculoService } from "@/services/versiculoService";
 import { YOUTUBE_VIDEO_ID, getProximoCulto } from "@/lib/constants";
 import type { Versiculo } from "@/types";
-import { useTheme } from "@/hooks/useTheme";
+import { useThemeForScreen } from "@/hooks/useThemeForScreen";
+import { useScreenReady } from "@/hooks/useScreenReady";
+import { useImagePrefetch } from "@/hooks/useImagePrefetch";
 
 const MINISTRY_LOGOS = [
   { nome: "Infantil", logo: require("../../assets/logos/resgatando.png") },
@@ -49,10 +51,94 @@ const BULLET_ITEMS = [
   "Comunidade acolhedora e familiar",
 ];
 
+// ── Memoized Sub-Components ──
+
+const CultoCard = React.memo(function CultoCard({
+  proximoCulto,
+  c,
+}: {
+  proximoCulto: { nome: string; horario: string; local: string };
+  c: Record<string, string>;
+}) {
+  return (
+    <View style={{ paddingHorizontal: 16, marginTop: 32 }}>
+      <View style={[styles.cultoCard, { backgroundColor: c.cardBg, borderColor: c.cardBorder }]}>
+        <View style={styles.cultoColumn}>
+          <Text style={[styles.cultoLabel, { color: c.muted }]}>Próximo Culto</Text>
+          <Text style={[styles.cultoValue, { color: c.foreground }]}>{proximoCulto.nome}</Text>
+        </View>
+        <View style={[styles.cultoColumn, styles.cultoDivider, { borderColor: c.cardBorder }]}>
+          <Text style={[styles.cultoLabel, { color: c.muted }]}>Horário</Text>
+          <Text style={[styles.cultoValue, { color: c.foreground }]}>{proximoCulto.horario}</Text>
+        </View>
+        <View style={styles.cultoColumn}>
+          <Text style={[styles.cultoLabel, { color: c.muted }]}>Local</Text>
+          <Text style={[styles.cultoValue, { color: c.foreground }]}>
+            {proximoCulto.local}
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
+});
+
+const ExploreCard = React.memo(function ExploreCard({
+  item,
+  cardWidth,
+  c,
+  onPress,
+}: {
+  item: (typeof EXPLORE_ITEMS)[number];
+  cardWidth: number;
+  c: Record<string, string>;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={[styles.exploreCard, { width: cardWidth, backgroundColor: c.cardBg, borderColor: c.softBorder }]}
+    >
+      <View style={[styles.exploreIconBg, { backgroundColor: c.iconBg }]}>
+        <item.icon size={24} color={c.primary} />
+      </View>
+      <Text style={[styles.exploreTitle, { color: c.foreground }]}>{item.title}</Text>
+      <Text style={[styles.exploreDesc, { color: c.muted }]}>{item.desc}</Text>
+    </Pressable>
+  );
+});
+
+const MinistryItem = React.memo(function MinistryItem({
+  item,
+  logoWidth,
+  c,
+  onPress,
+}: {
+  item: (typeof MINISTRY_LOGOS)[number];
+  logoWidth: number;
+  c: Record<string, string>;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable onPress={onPress} style={[styles.ministerioItem, { width: logoWidth }]}>
+      <View style={[styles.ministerioLogoBg, { backgroundColor: c.mutedBg }]}>
+        <Image
+          source={item.logo}
+          style={{ width: 40, height: 40 }}
+          contentFit="contain"
+        />
+      </View>
+      <Text style={[styles.ministerioName, { color: c.muted }]}>{item.nome}</Text>
+    </Pressable>
+  );
+});
+
+// ── Main Screen ──
+
 export default function HomeScreen() {
   const router = useRouter();
   const { width } = useWindowDimensions();
-  const { isDark } = useTheme();
+  const { isDark } = useThemeForScreen();
+  const screenReady = useScreenReady();
   const [proximoCulto, setProximoCulto] = useState(getProximoCulto());
   const [versiculoAspect, setVersiculoAspect] = useState(4 / 5);
 
@@ -62,6 +148,8 @@ export default function HomeScreen() {
     staleTime: 1000 * 60 * 60,
   });
 
+  useImagePrefetch(useMemo(() => [versiculoDoDia?.url_imagem], [versiculoDoDia]));
+
   useEffect(() => {
     const interval = setInterval(() => {
       setProximoCulto(getProximoCulto());
@@ -69,37 +157,60 @@ export default function HomeScreen() {
     return () => clearInterval(interval);
   }, []);
 
-  const getTituloVersiculo = (versiculo: Versiculo) => {
+  const getTituloVersiculo = useCallback((versiculo: Versiculo) => {
     if (versiculo.titulo) return versiculo.titulo;
     const dataObj = new Date(versiculo.data + "T00:00:00");
     const dia = dataObj.getDate();
     const mes = dataObj.toLocaleDateString("pt-BR", { month: "long" });
     return `Versículo do dia ${dia} de ${mes}`;
-  };
+  }, []);
 
-  const cardWidth = (width - 48) / 2;
-  const logoWidth = (width - 80) / 3;
+  const cardWidth = useMemo(() => (width - 48) / 2, [width]);
+  const logoWidth = useMemo(() => (width - 80) / 3, [width]);
+  const videoHeight = useMemo(() => (width - 32) * 9 / 16, [width]);
 
-  // Dark-mode adaptive colors (from web CSS: sites/igreja/src/index.css)
-  const c = {
-    bg: isDark ? "#0E131B" : "#FFFFFF",
-    foreground: isDark ? "#FAFAFA" : "#1D2530",
-    muted: isDark ? "#9DA4AF" : "#627084",
-    primary: isDark ? "#367EE2" : "#123E7D",
-    cardBg: isDark ? "#171D26" : "#FFFFFF",
-    cardBorder: isDark ? "#29313D" : "#E2E5E9",
-    softBorder: isDark ? "#29313D" : "#E2E5E9",
-    mutedBg: isDark ? "#252C37" : "#F3F5F6",
-    iconBg: isDark ? "rgba(54,126,226,0.10)" : "rgba(18,62,125,0.10)",
-    sectionBg: isDark ? "rgba(37,44,55,0.3)" : "rgba(243,245,246,0.3)",
-    outlineBg: isDark ? "#0E131B" : "#FFFFFF",
-    outlineBorder: isDark ? "#29313D" : "#E2E5E9",
-  };
+  const c = useMemo(
+    () => ({
+      bg: isDark ? "#0E131B" : "#FFFFFF",
+      foreground: isDark ? "#FAFAFA" : "#1D2530",
+      muted: isDark ? "#9DA4AF" : "#627084",
+      primary: isDark ? "#367EE2" : "#123E7D",
+      cardBg: isDark ? "#171D26" : "#FFFFFF",
+      cardBorder: isDark ? "#29313D" : "#E2E5E9",
+      softBorder: isDark ? "#29313D" : "#E2E5E9",
+      mutedBg: isDark ? "#252C37" : "#F3F5F6",
+      iconBg: isDark ? "rgba(54,126,226,0.10)" : "rgba(18,62,125,0.10)",
+      sectionBg: isDark ? "rgba(37,44,55,0.3)" : "rgba(243,245,246,0.3)",
+      outlineBg: isDark ? "#0E131B" : "#FFFFFF",
+      outlineBorder: isDark ? "#29313D" : "#E2E5E9",
+    }),
+    [isDark]
+  );
+
+  const navigateTo = useCallback(
+    (route: string) => {
+      router.push(route as any);
+    },
+    [router]
+  );
+
+  const handleVersiculoImageLoad = useCallback(
+    (e: { source: { width: number; height: number } }) => {
+      const { width: w, height: h } = e.source;
+      if (w && h) setVersiculoAspect(w / h);
+    },
+    []
+  );
+
+  if (!screenReady) {
+    return <View style={{ flex: 1, backgroundColor: c.bg }} />;
+  }
 
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: c.bg }}
       showsVerticalScrollIndicator={false}
+      removeClippedSubviews
     >
         {/* Hero Banner */}
         <Image
@@ -109,44 +220,26 @@ export default function HomeScreen() {
           contentPosition="center"
         />
 
-        {/* Navigation Buttons — web: mt-4 gap-3 px-4 py-3 text-sm min-h-[44px] */}
+        {/* Navigation Buttons */}
         <View style={styles.buttonsRow}>
           <Pressable
-            onPress={() => router.push("/quem-somos")}
+            onPress={() => navigateTo("/quem-somos")}
             style={[styles.outlineButton, { backgroundColor: c.outlineBg, borderColor: c.outlineBorder }]}
           >
             <Text style={[styles.outlineButtonText, { color: c.foreground }]}>Nossa História</Text>
           </Pressable>
           <Pressable
-            onPress={() => router.push("/programacao")}
+            onPress={() => navigateTo("/programacao")}
             style={[styles.filledButton, { backgroundColor: c.primary }]}
           >
             <Text style={styles.filledButtonText}>Programação</Text>
           </Pressable>
         </View>
 
-        {/* web: h-6 spacer then pt-2 for culto = ~32px total */}
-        {/* Proximo Culto — web: p-5, text-[11px] labels, text-sm values */}
-        <View style={{ paddingHorizontal: 16, marginTop: 32 }}>
-          <View style={[styles.cultoCard, { backgroundColor: c.cardBg, borderColor: c.cardBorder }]}>
-            <View style={styles.cultoColumn}>
-              <Text style={[styles.cultoLabel, { color: c.muted }]}>Próximo Culto</Text>
-              <Text style={[styles.cultoValue, { color: c.foreground }]}>{proximoCulto.nome}</Text>
-            </View>
-            <View style={[styles.cultoColumn, styles.cultoDivider, { borderColor: c.cardBorder }]}>
-              <Text style={[styles.cultoLabel, { color: c.muted }]}>Horário</Text>
-              <Text style={[styles.cultoValue, { color: c.foreground }]}>{proximoCulto.horario}</Text>
-            </View>
-            <View style={styles.cultoColumn}>
-              <Text style={[styles.cultoLabel, { color: c.muted }]}>Local</Text>
-              <Text style={[styles.cultoValue, { color: c.foreground }]}>
-                {proximoCulto.local}
-              </Text>
-            </View>
-          </View>
-        </View>
+        {/* Proximo Culto */}
+        <CultoCard proximoCulto={proximoCulto} c={c} />
 
-        {/* Sobre Nos — web: py-12 (48px), text-2xl mb-4 heading, text-base mb-4 body, space-y-3 bullets, mb-6 then button */}
+        {/* Sobre Nos */}
         <View style={{ paddingHorizontal: 16, paddingVertical: 48 }}>
           <Text style={[styles.sectionHeading, { color: c.foreground }]}>
             Uma Igreja que Transforma Vidas
@@ -164,9 +257,8 @@ export default function HomeScreen() {
               </View>
             ))}
           </View>
-          {/* "Saiba Mais" button — web: px-6 py-3 min-h-[48px] bg-primary (NO text-sm = 16px) */}
           <Pressable
-            onPress={() => router.push("/quem-somos")}
+            onPress={() => navigateTo("/quem-somos")}
             style={[styles.saibaMaisButton, { backgroundColor: c.primary }]}
             android_ripple={{ color: "rgba(255,255,255,0.2)" }}
           >
@@ -174,35 +266,31 @@ export default function HomeScreen() {
             <ArrowRight size={20} color="#ffffff" />
           </Pressable>
 
-          {/* YouTube Video — web: inside same section, gap-8 (32px) above, aspect-video rounded-lg shadow-medium */}
+          {/* YouTube Video */}
           <View style={styles.videoContainer}>
-            <YouTubePlayer videoId={YOUTUBE_VIDEO_ID} height={(width - 32) * 9 / 16} />
+            <YouTubePlayer videoId={YOUTUBE_VIDEO_ID} height={videoHeight} />
           </View>
         </View>
 
-        {/* Explore Nossa Igreja — web: bg-muted/30 py-12, text-2xl mb-8 heading, grid gap-3, p-4 cards */}
+        {/* Explore Nossa Igreja */}
         <View style={[styles.exploreSection, { backgroundColor: c.sectionBg }]}>
           <Text style={[styles.sectionHeading, { color: c.foreground, textAlign: "center", marginBottom: 32 }]}>
             Explore Nossa Igreja
           </Text>
           <View style={styles.exploreGrid}>
             {EXPLORE_ITEMS.map((item) => (
-              <Pressable
+              <ExploreCard
                 key={item.title}
-                onPress={() => router.push(item.route)}
-                style={[styles.exploreCard, { width: cardWidth, backgroundColor: c.cardBg, borderColor: c.softBorder }]}
-              >
-                <View style={[styles.exploreIconBg, { backgroundColor: c.iconBg }]}>
-                  <item.icon size={24} color={c.primary} />
-                </View>
-                <Text style={[styles.exploreTitle, { color: c.foreground }]}>{item.title}</Text>
-                <Text style={[styles.exploreDesc, { color: c.muted }]}>{item.desc}</Text>
-              </Pressable>
+                item={item}
+                cardWidth={cardWidth}
+                c={c}
+                onPress={() => navigateTo(item.route)}
+              />
             ))}
           </View>
         </View>
 
-        {/* Ministerios — web: py-12, text-2xl mb-3, text-sm mb-8, grid gap-3, w-16 h-16, mt-8 link */}
+        {/* Ministerios */}
         <View style={{ paddingHorizontal: 16, paddingVertical: 48 }}>
           <Text style={[styles.sectionHeading, { color: c.foreground, textAlign: "center", marginBottom: 12 }]}>
             Nossos Ministérios e Grupos
@@ -212,24 +300,17 @@ export default function HomeScreen() {
           </Text>
           <View style={styles.ministeriosGrid}>
             {MINISTRY_LOGOS.map((item) => (
-              <Pressable
+              <MinistryItem
                 key={item.nome}
-                onPress={() => router.push("/quem-somos")}
-                style={[styles.ministerioItem, { width: logoWidth }]}
-              >
-                <View style={[styles.ministerioLogoBg, { backgroundColor: c.mutedBg }]}>
-                  <Image
-                    source={item.logo}
-                    style={{ width: 40, height: 40 }}
-                    contentFit="contain"
-                  />
-                </View>
-                <Text style={[styles.ministerioName, { color: c.muted }]}>{item.nome}</Text>
-              </Pressable>
+                item={item}
+                logoWidth={logoWidth}
+                c={c}
+                onPress={() => navigateTo("/quem-somos")}
+              />
             ))}
           </View>
           <Pressable
-            onPress={() => router.push("/quem-somos")}
+            onPress={() => navigateTo("/quem-somos")}
             style={styles.conhecaTodosRow}
           >
             <Text style={[styles.conhecaTodosText, { color: c.primary }]}>Conheça todos</Text>
@@ -237,7 +318,7 @@ export default function HomeScreen() {
           </Pressable>
         </View>
 
-        {/* Versiculo do Dia — web: py-12, gap-2 mb-6 header, text-xl heading */}
+        {/* Versiculo do Dia */}
         <View style={{ paddingHorizontal: 16, paddingVertical: 48 }}>
           <View style={styles.versiculoHeaderRow}>
             <BookOpen size={20} color={c.primary} />
@@ -254,7 +335,7 @@ export default function HomeScreen() {
           ) : versiculoDoDia ? (
             versiculoDoDia.url_imagem ? (
               <Pressable
-                onPress={() => router.push("/versiculo-do-dia")}
+                onPress={() => navigateTo("/versiculo-do-dia")}
                 style={({ pressed }) => pressed && { opacity: 0.8 }}
               >
                 <View style={[styles.cardContainer, { backgroundColor: c.cardBg, borderColor: c.softBorder }]}>
@@ -263,10 +344,7 @@ export default function HomeScreen() {
                     style={{ width: "100%", aspectRatio: versiculoAspect }}
                     contentFit="cover"
                     cachePolicy="disk"
-                    onLoad={(e) => {
-                      const { width: w, height: h } = e.source;
-                      if (w && h) setVersiculoAspect(w / h);
-                    }}
+                    onLoad={handleVersiculoImageLoad}
                   />
                   <View style={{ paddingHorizontal: 16, paddingVertical: 12, alignItems: "center" }}>
                     <Text style={[styles.versiculoTitulo, { color: c.primary }]}>
@@ -280,7 +358,7 @@ export default function HomeScreen() {
               </Pressable>
             ) : (
               <Pressable
-                onPress={() => router.push("/versiculo-do-dia")}
+                onPress={() => navigateTo("/versiculo-do-dia")}
                 style={({ pressed }) => pressed && { opacity: 0.8 }}
               >
                 <View style={[styles.cardContainer, { backgroundColor: c.primary, borderColor: c.primary }]}>
@@ -307,7 +385,7 @@ export default function HomeScreen() {
                   Em breve teremos uma nova mensagem para você!
                 </Text>
                 <Pressable
-                  onPress={() => router.push("/versiculo-do-dia")}
+                  onPress={() => navigateTo("/versiculo-do-dia")}
                   style={[styles.versiculoFallbackBtn, { backgroundColor: c.bg }]}
                 >
                   <Text style={{ color: c.foreground, fontWeight: "600", fontSize: 20 }}>
@@ -319,7 +397,7 @@ export default function HomeScreen() {
           )}
         </View>
 
-        {/* CTA — web: py-12, p-6, text-2xl mb-3 title, text-base mb-6 body */}
+        {/* CTA */}
         <View style={{ paddingHorizontal: 16, paddingVertical: 48 }}>
           <View style={styles.ctaCard}>
             <Text style={styles.ctaTitle}>Faça Parte da Nossa Família</Text>
@@ -328,7 +406,7 @@ export default function HomeScreen() {
               amor e verdade
             </Text>
             <Pressable
-              onPress={() => router.push("/fale-conosco")}
+              onPress={() => navigateTo("/fale-conosco")}
               style={[styles.ctaButton, { backgroundColor: c.bg }]}
             >
               <Text style={[styles.ctaButtonText, { color: c.foreground }]}>Entre em Contato</Text>
@@ -342,7 +420,7 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  /* Buttons — web: mt-4 gap-3 px-4 py-3 text-sm min-h-[44px] */
+  /* Buttons */
   buttonsRow: {
     flexDirection: "row",
     justifyContent: "center",
@@ -387,7 +465,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
   },
 
-  /* Proximo Culto — web: p-5 (20px), text-[11px] labels, text-sm (14px) values */
+  /* Proximo Culto */
   cultoCard: {
     flexDirection: "row",
     borderRadius: 12,
@@ -419,20 +497,19 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 
-  /* Section Headings — web: text-2xl (24px), mb-4 (16px) */
+  /* Section Headings */
   sectionHeading: {
     fontSize: 28,
     fontWeight: "bold",
     marginBottom: 16,
   },
-  /* Section Text — web: text-base (16px), mb-4 (16px) */
   sectionText: {
     fontSize: 20,
     lineHeight: 26,
     marginBottom: 16,
   },
 
-  /* Bullet Items — web: space-y-3 (12px gap), w-2 h-2 dot, text-muted-foreground (16px default) */
+  /* Bullet Items */
   bulletRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -449,7 +526,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
   },
 
-  /* Saiba Mais button — web: px-6 py-3 min-h-[48px] bg-primary gap-2 */
+  /* Saiba Mais button */
   saibaMaisButton: {
     flexDirection: "row",
     alignItems: "center",
@@ -472,7 +549,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
   },
 
-  /* Video — web: aspect-video rounded-lg shadow-medium, gap-8 (32px) above */
+  /* Video */
   videoContainer: {
     marginTop: 32,
     borderRadius: 8,
@@ -484,13 +561,13 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
 
-  /* Explore Section — web: bg-muted/30 py-12 (48px) */
+  /* Explore Section */
   exploreSection: {
     paddingHorizontal: 16,
     paddingVertical: 48,
   },
 
-  /* Explore Grid — web: grid-cols-2 gap-3 (12px), p-4 (16px) cards, w-12 h-12 icon, text-base title mb-1, text-xs desc */
+  /* Explore Grid */
   exploreGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -525,7 +602,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 
-  /* Ministerios — web: text-sm (14px) subtitle mb-8 (32px), grid gap-3, w-16 h-16 logos, text-xs name, mt-8 link */
+  /* Ministerios */
   ministeriosSubtitle: {
     fontSize: 18,
     textAlign: "center",
@@ -567,7 +644,7 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
 
-  /* Versiculo — web: gap-2 mb-6 (24px) header row, text-xl (20px) heading */
+  /* Versiculo */
   versiculoHeaderRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -589,13 +666,11 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 5,
   },
-  /* web: font-semibold text-primary mb-2 (8px) */
   versiculoTitulo: {
     fontSize: 20,
     fontWeight: "600",
     marginBottom: 8,
   },
-  /* web: text-sm text-muted-foreground */
   versiculoSubtext: {
     fontSize: 18,
   },
@@ -606,7 +681,7 @@ const styles = StyleSheet.create({
     minHeight: 48,
   },
 
-  /* CTA — web: p-6 (24px), text-2xl mb-3 (12px) title, text-base mb-6 (24px) body */
+  /* CTA */
   ctaCard: {
     backgroundColor: "#f59e0b",
     borderRadius: 16,

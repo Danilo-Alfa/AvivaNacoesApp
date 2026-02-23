@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ScrollView,
   View,
@@ -26,7 +26,9 @@ import {
 import { Skeleton } from "@/components/ui/Skeleton";
 import { versiculoService } from "@/services/versiculoService";
 import { AppFooter } from "@/components/AppFooter";
-import { useTheme } from "@/hooks/useTheme";
+import { useThemeForScreen } from "@/hooks/useThemeForScreen";
+import { useScreenReady } from "@/hooks/useScreenReady";
+import { useImagePrefetch } from "@/hooks/useImagePrefetch";
 import type { Versiculo } from "@/types";
 
 // ── Floating Circle (animated) ──
@@ -134,10 +136,11 @@ function WaveSvg({ color }: { color: string }) {
 
 export default function VersiculoDoDiaScreen() {
   const { width } = useWindowDimensions();
-  const { isDark } = useTheme();
+  const { isDark } = useThemeForScreen();
+  const screenReady = useScreenReady();
   const [imagemTelaCheia, setImagemTelaCheia] = useState<string | null>(null);
 
-  const c = {
+  const c = useMemo(() => ({
     bg: isDark ? "#0E131B" : "#FFFFFF",
     foreground: isDark ? "#FAFAFA" : "#1D2530",
     muted: isDark ? "#9DA4AF" : "#627084",
@@ -146,7 +149,7 @@ export default function VersiculoDoDiaScreen() {
     cardBorder: isDark ? "#29313D" : "#E2E5E9",
     mutedBg: isDark ? "#252C37" : "#F3F5F6",
     primaryLight: isDark ? "rgba(54,126,226,0.10)" : "rgba(18,62,125,0.10)",
-  };
+  }), [isDark]);
 
   const { data: versiculoDoDia, isLoading: loadingDia } = useQuery({
     queryKey: ["versiculo-do-dia"],
@@ -159,6 +162,15 @@ export default function VersiculoDoDiaScreen() {
     queryFn: () => versiculoService.getVersiculosAnteriores(6),
     staleTime: 1000 * 60 * 60,
   });
+
+  const versiculoImageUrls = useMemo(
+    () => [
+      versiculoDoDia?.url_imagem,
+      ...(anteriores?.map((v) => v.url_imagem) ?? []),
+    ],
+    [versiculoDoDia, anteriores]
+  );
+  useImagePrefetch(versiculoImageUrls);
 
   const getTitulo = (v: Versiculo) => {
     if (v.titulo) return v.titulo;
@@ -180,7 +192,7 @@ export default function VersiculoDoDiaScreen() {
 
   // ── Skeleton Loading ──
 
-  if (isLoading) {
+  if (!screenReady || isLoading) {
     return (
       <ScrollView style={{ flex: 1, backgroundColor: c.bg }} showsVerticalScrollIndicator={false}>
         {/* Hero Skeleton */}

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useMemo } from "react";
 import {
   ScrollView,
   View,
@@ -12,7 +12,8 @@ import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { RotateCcw } from "lucide-react-native";
 import { AppFooter } from "@/components/AppFooter";
-import { useTheme } from "@/hooks/useTheme";
+import { useThemeForScreen } from "@/hooks/useThemeForScreen";
+import { useScreenReady } from "@/hooks/useScreenReady";
 
 // ── Data ──
 
@@ -261,10 +262,11 @@ function LogoCircle({ logo, emoji, size = 80, bgColor }: { logo?: any; emoji?: s
 
 export default function QuemSomosScreen() {
   const { width } = useWindowDimensions();
-  const { isDark } = useTheme();
+  const { isDark } = useThemeForScreen();
+  const screenReady = useScreenReady();
 
   // Dark-mode adaptive colors (aligned with home page / web CSS)
-  const c = {
+  const c = useMemo(() => ({
     bg: isDark ? "#0E131B" : "#FFFFFF",
     foreground: isDark ? "#FAFAFA" : "#1D2530",
     muted: isDark ? "#9DA4AF" : "#627084",
@@ -276,7 +278,11 @@ export default function QuemSomosScreen() {
     mutedBg: isDark ? "#252C37" : "#F3F5F6",
     valorCircleBg: isDark ? "rgba(245,158,11,0.15)" : "#fef3c7",
     valorNumber: isDark ? "#fbbf24" : "#d97706",
-  };
+  }), [isDark]);
+
+  if (!screenReady) {
+    return <View style={{ flex: 1, backgroundColor: c.bg }} />;
+  }
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: c.bg }} showsVerticalScrollIndicator={false}>

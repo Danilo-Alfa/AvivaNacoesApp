@@ -23,7 +23,7 @@ interface LiveChatProps {
   isLive: boolean;
 }
 
-export default function LiveChat({
+function LiveChatInner({
   sessionId,
   nome,
   email,
@@ -164,7 +164,7 @@ export default function LiveChat({
 
   if (!isLive) return null;
 
-  const renderMensagem = ({ item: msg }: { item: ChatMensagem }) => {
+  const renderMensagem = useCallback(({ item: msg }: { item: ChatMensagem }) => {
     const isOwn = msg.session_id === sessionId;
 
     return (
@@ -192,7 +192,7 @@ export default function LiveChat({
         </View>
       </View>
     );
-  };
+  }, [sessionId, cl]);
 
   const canSend = novaMensagem.trim() && isConnected;
 
@@ -289,6 +289,9 @@ export default function LiveChat({
     </View>
   );
 }
+
+const LiveChat = React.memo(LiveChatInner);
+export default LiveChat;
 
 const st = StyleSheet.create({
   container: {

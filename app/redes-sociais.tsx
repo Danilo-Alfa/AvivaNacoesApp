@@ -21,7 +21,8 @@ import {
   MessageCircle,
 } from "lucide-react-native";
 import { AppFooter } from "@/components/AppFooter";
-import { useTheme } from "@/hooks/useTheme";
+import { useThemeForScreen } from "@/hooks/useThemeForScreen";
+import { useScreenReady } from "@/hooks/useScreenReady";
 
 const ICON_MAP: Record<string, React.ComponentType<any>> = {
   facebook: Facebook,
@@ -132,7 +133,8 @@ const WHAT_WE_POST = [
 ];
 
 export default function RedesSociaisScreen() {
-  const { isDark } = useTheme();
+  const { isDark } = useThemeForScreen();
+  const screenReady = useScreenReady();
 
   const c = {
     bg: isDark ? "#0E131B" : "#FFFFFF",
@@ -145,6 +147,10 @@ export default function RedesSociaisScreen() {
     badgeBg: isDark ? "rgba(54,126,226,0.08)" : "rgba(18,62,125,0.05)",
     badgeBorder: isDark ? "rgba(54,126,226,0.25)" : "rgba(18,62,125,0.2)",
   };
+
+  if (!screenReady) {
+    return <View style={{ flex: 1, backgroundColor: c.bg }} />;
+  }
 
   return (
     <ScrollView

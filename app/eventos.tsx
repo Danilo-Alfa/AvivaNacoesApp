@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useEffect } from "react";
+import React, { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import {
   ScrollView,
   View,
@@ -21,7 +21,9 @@ import {
 } from "@/services/eventoService";
 import { AppFooter } from "@/components/AppFooter";
 import { formatarPeriodo, formatarHorario } from "@/lib/utils";
-import { useTheme } from "@/hooks/useTheme";
+import { useThemeForScreen } from "@/hooks/useThemeForScreen";
+import { useScreenReady } from "@/hooks/useScreenReady";
+import { useImagePrefetch } from "@/hooks/useImagePrefetch";
 import type { Evento } from "@/types";
 
 const DIAS_SEMANA = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
@@ -152,9 +154,10 @@ function CalendarioSkeleton({ cardBg, cardBorder }: { cardBg: string; cardBorder
 }
 
 export default function EventosScreen() {
-  const { isDark } = useTheme();
+  const { isDark } = useThemeForScreen();
+  const screenReady = useScreenReady();
 
-  const c = {
+  const c = useMemo(() => ({
     bg: isDark ? "#0E131B" : "#FFFFFF",
     foreground: isDark ? "#FAFAFA" : "#1D2530",
     muted: isDark ? "#9DA4AF" : "#627084",
@@ -174,14 +177,14 @@ export default function EventosScreen() {
     modalBg: isDark ? "#111827" : "#ffffff",
     modalSecondary: isDark ? "#9ca3af" : "#6b7280",
     grabHandle: isDark ? "#4b5563" : "#d1d5db",
-  };
+  }), [isDark]);
 
   const [mesAtual, setMesAtual] = useState(new Date());
   const [diaSelecionado, setDiaSelecionado] = useState<number | null>(null);
   const [modalVisivel, setModalVisivel] = useState(false);
   const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
 
-  const abrirModal = (dia: number) => {
+  const abrirModal = useCallback((dia: number) => {
     setDiaSelecionado(dia);
     setModalVisivel(true);
     slideAnim.setValue(SCREEN_HEIGHT);
@@ -191,9 +194,9 @@ export default function EventosScreen() {
       damping: 25,
       stiffness: 200,
     }).start();
-  };
+  }, [slideAnim]);
 
-  const fecharModal = () => {
+  const fecharModal = useCallback(() => {
     Animated.timing(slideAnim, {
       toValue: SCREEN_HEIGHT,
       duration: 250,
@@ -202,7 +205,7 @@ export default function EventosScreen() {
       setModalVisivel(false);
       setDiaSelecionado(null);
     });
-  };
+  }, [slideAnim]);
 
   const { data: eventosFuturos, isLoading: loadingFuturos } = useQuery({
     queryKey: ["eventos-futuros"],
@@ -223,6 +226,15 @@ export default function EventosScreen() {
   });
 
   const isLoading = loadingFuturos || loadingDestaque;
+
+  const eventImageUrls = useMemo(
+    () => [
+      ...(eventosDestaque?.map((e) => e.imagem_url) ?? []),
+      ...(eventosFuturos?.slice(0, 6).map((e) => e.imagem_url) ?? []),
+    ],
+    [eventosDestaque, eventosFuturos]
+  );
+  useImagePrefetch(eventImageUrls);
 
   const gerarCalendario = useCallback(() => {
     const ano = mesAtual.getFullYear();
@@ -260,10 +272,10 @@ export default function EventosScreen() {
     [eventosDoMes, mesAtual]
   );
 
-  const mudarMes = (direcao: number) => {
-    setMesAtual(new Date(mesAtual.getFullYear(), mesAtual.getMonth() + direcao, 1));
+  const mudarMes = useCallback((direcao: number) => {
+    setMesAtual((prev) => new Date(prev.getFullYear(), prev.getMonth() + direcao, 1));
     setDiaSelecionado(null);
-  };
+  }, []);
 
   const hoje = new Date();
   const isHoje = (dia: number) =>
@@ -282,7 +294,7 @@ export default function EventosScreen() {
     primaryLight: c.primaryLight,
   };
 
-  if (isLoading) {
+  if (!screenReady || isLoading) {
     return (
       <ScrollView style={{ flex: 1, backgroundColor: c.bg }} showsVerticalScrollIndicator={false}>
         <View style={{ paddingHorizontal: 16, paddingTop: 32, paddingBottom: 16 }}>

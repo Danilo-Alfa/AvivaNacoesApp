@@ -11,15 +11,16 @@ import {
   ExternalLink,
 } from "lucide-react-native";
 import { Card, CardContent } from "@/components/ui/Card";
-import { useTheme } from "@/hooks/useTheme";
+import { useThemeForScreen } from "@/hooks/useThemeForScreen";
 import { AppFooter } from "@/components/AppFooter";
+import { Image } from "expo-image";
 import { queryClient } from "@/lib/queryClient";
 import { clearAllStorage } from "@/lib/storage";
 import Toast from "react-native-toast-message";
 
 export default function MoreScreen() {
   const router = useRouter();
-  const { isDark, toggleTheme } = useTheme();
+  const { isDark, toggleTheme } = useThemeForScreen();
   const appVersion = Constants.expoConfig?.version || "1.0.0";
   const iconPrimary = isDark ? "#60a5fa" : "#1e3a5f";
 
@@ -32,9 +33,10 @@ export default function MoreScreen() {
         {
           text: "Limpar",
           style: "destructive",
-          onPress: () => {
+          onPress: async () => {
             queryClient.clear();
             clearAllStorage();
+            await Image.clearDiskCache();
             Toast.show({
               type: "success",
               text1: "Cache limpo com sucesso",

@@ -1,11 +1,12 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { ScrollView, View, Text, StyleSheet } from "react-native";
 import { Image } from "expo-image";
 import { useQuery } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { getProjetosAtivos } from "@/services/projetoService";
 import { AppFooter } from "@/components/AppFooter";
-import { useTheme } from "@/hooks/useTheme";
+import { useThemeForScreen } from "@/hooks/useThemeForScreen";
+import { useScreenReady } from "@/hooks/useScreenReady";
 import type { Projeto } from "@/types";
 
 // ── Local images map (fallback for offline / faster loading) ──
@@ -202,9 +203,10 @@ function ProjetoCard({
 // ── Main Screen ──
 
 export default function ProjetosScreen() {
-  const { isDark } = useTheme();
+  const { isDark } = useThemeForScreen();
+  const screenReady = useScreenReady();
 
-  const c = {
+  const c = useMemo(() => ({
     bg: isDark ? "#0E131B" : "#FFFFFF",
     foreground: isDark ? "#FAFAFA" : "#1D2530",
     muted: isDark ? "#9DA4AF" : "#627084",
@@ -216,7 +218,7 @@ export default function ProjetosScreen() {
     primaryLight: isDark
       ? "rgba(54,126,226,0.10)"
       : "rgba(18,62,125,0.10)",
-  };
+  }), [isDark]);
 
   const { data: projetos, isLoading } = useQuery({
     queryKey: ["projetos"],
@@ -226,7 +228,7 @@ export default function ProjetosScreen() {
 
   // ── Skeleton Loading ──
 
-  if (isLoading) {
+  if (!screenReady || isLoading) {
     return (
       <ScrollView
         style={{ flex: 1, backgroundColor: c.bg }}

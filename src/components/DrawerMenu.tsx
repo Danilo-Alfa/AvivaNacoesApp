@@ -99,10 +99,14 @@ export function DrawerMenu({ visible, onClose }: DrawerMenuProps) {
 
   const slideAnim = useRef(new Animated.Value(DRAWER_WIDTH)).current;
   const backdropAnim = useRef(new Animated.Value(0)).current;
+  const visibleRef = useRef(visible);
   const [isRendered, setIsRendered] = useState(false);
   const [isLiveActive, setIsLiveActive] = useState(false);
 
+  visibleRef.current = visible;
+
   useEffect(() => {
+    if (!visible) return;
     const checkLive = async () => {
       try {
         const status = await getLiveStatus();
@@ -114,22 +118,39 @@ export function DrawerMenu({ visible, onClose }: DrawerMenuProps) {
     checkLive();
     const interval = setInterval(checkLive, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [visible]);
 
+  // Handle visibility: mount/unmount + close animation
   useEffect(() => {
     if (visible) {
+      slideAnim.stopAnimation();
+      backdropAnim.stopAnimation();
+      slideAnim.setValue(DRAWER_WIDTH);
+      backdropAnim.setValue(0);
       setIsRendered(true);
-      Animated.parallel([
-        Animated.timing(backdropAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
-        Animated.spring(slideAnim, { toValue: 0, useNativeDriver: true, damping: 25, stiffness: 300 }),
-      ]).start();
     } else if (isRendered) {
+      slideAnim.stopAnimation();
+      backdropAnim.stopAnimation();
       Animated.parallel([
         Animated.timing(backdropAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
         Animated.timing(slideAnim, { toValue: DRAWER_WIDTH, duration: 250, useNativeDriver: true }),
       ]).start(() => setIsRendered(false));
     }
   }, [visible]);
+
+  // Start opening animation AFTER the drawer is actually rendered
+  useEffect(() => {
+    if (isRendered && visible) {
+      requestAnimationFrame(() => {
+        // Guard: skip if user already closed before this frame
+        if (!visibleRef.current) return;
+        Animated.parallel([
+          Animated.timing(backdropAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
+          Animated.spring(slideAnim, { toValue: 0, useNativeDriver: true, damping: 25, stiffness: 300 }),
+        ]).start();
+      });
+    }
+  }, [isRendered]);
 
   // Auto-close drawer when the route actually changes.
   const prevPathRef = useRef(pathname);
@@ -150,7 +171,10 @@ export function DrawerMenu({ visible, onClose }: DrawerMenuProps) {
       onClose();
       return;
     }
-    router.navigate(route as any);
+    // Navigate first — drawer auto-closes via pathname effect.
+    // Calling onClose() before replace() blocks the JS thread
+    // with a re-render cascade that delays the navigation.
+    router.replace(route as any);
   };
 
   if (!isRendered) return null;

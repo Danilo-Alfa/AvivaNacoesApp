@@ -9,7 +9,7 @@ interface YouTubePlayerProps {
   height?: number;
 }
 
-export function YouTubePlayer({ videoId, height = 220 }: YouTubePlayerProps) {
+export const YouTubePlayer = React.memo(function YouTubePlayer({ videoId, height = 220 }: YouTubePlayerProps) {
   const [playing, setPlaying] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -63,4 +63,4 @@ export function YouTubePlayer({ videoId, height = 220 }: YouTubePlayerProps) {
       />
     </View>
   );
-}
+});

@@ -1,13 +1,14 @@
 import "../global.css";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useLayoutEffect, useState, useMemo } from "react";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { View, ActivityIndicator } from "react-native";
 import { useColorScheme } from "nativewind";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
-import { queryClient, asyncStoragePersister } from "@/lib/queryClient";
+import { queryClient, persistOptions } from "@/lib/queryClient";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { initStorage, mmkvStorage } from "@/lib/storage";
+import { setupOnlineManager } from "@/lib/onlineManager";
 import { DrawerMenu } from "@/components/DrawerMenu";
 import { LiveFAB } from "@/components/LiveFAB";
 import { AppHeader } from "@/components/AppHeader";
@@ -16,20 +17,30 @@ import Toast from "react-native-toast-message";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
+// Setup React Query online manager with NetInfo (runs once at module scope)
+setupOnlineManager();
+
 function AppContent() {
   const { colorScheme, setColorScheme } = useColorScheme();
   const { drawerOpen, openDrawer, closeDrawer } = useDrawer();
 
-  useEffect(() => {
+  // useLayoutEffect runs BEFORE paint — eliminates the light→dark flash
+  useLayoutEffect(() => {
     const saved = mmkvStorage.getItem("theme_mode");
     if (saved === "dark" || saved === "light") {
       setColorScheme(saved);
     }
   }, []);
 
+  const isDark = colorScheme === "dark";
+  const bgColor = isDark ? "#0e1219" : "#ffffff";
+
+  const rootStyle = useMemo(() => ({ flex: 1, backgroundColor: bgColor } as const), [bgColor]);
+  const contentStyle = useMemo(() => ({ backgroundColor: bgColor }), [bgColor]);
+
   return (
-    <View style={{ flex: 1, backgroundColor: colorScheme === "dark" ? "#0e1219" : "#ffffff" }}>
-      <StatusBar style={colorScheme === "dark" ? "light" : "dark"} />
+    <View style={rootStyle}>
+      <StatusBar style={isDark ? "light" : "dark"} />
 
       {/* Global header — same on every page, just like the web */}
       <AppHeader onMenuPress={openDrawer} />
@@ -40,13 +51,12 @@ function AppContent() {
       <Stack
         screenOptions={{
           headerShown: false,
-          contentStyle: {
-            backgroundColor: colorScheme === "dark" ? "#0e1219" : "#ffffff",
-          },
-          animation: "fade",
+          contentStyle,
+          animation: "slide_from_right",
+          animationDuration: 150,
         }}
       >
-        <Stack.Screen name="(tabs)" options={{ animation: "none" }} />
+        <Stack.Screen name="(tabs)" />
         <Stack.Screen name="quem-somos" />
         <Stack.Screen name="nossas-igrejas" />
         <Stack.Screen name="programacao" />
@@ -90,7 +100,7 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <PersistQueryClientProvider
           client={queryClient}
-          persistOptions={{ persister: asyncStoragePersister }}
+          persistOptions={persistOptions}
         >
           <DrawerProvider>
             <AppContent />

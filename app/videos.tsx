@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo, useCallback } from "react";
 import {
   ScrollView,
   View,
@@ -21,27 +21,164 @@ import {
 import { AppFooter } from "@/components/AppFooter";
 import { getYouTubeVideoId } from "@/lib/constants";
 import { formatarDataRelativa } from "@/lib/utils";
-import { useTheme } from "@/hooks/useTheme";
+import { useThemeForScreen } from "@/hooks/useThemeForScreen";
+import { useScreenReady } from "@/hooks/useScreenReady";
+import type { Video, Playlist } from "@/types";
+
+// ── Memoized Sub-Components ──
+
+const VideoCard = React.memo(function VideoCard({
+  video,
+  videoHeight,
+  c,
+}: {
+  video: Video;
+  videoHeight: number;
+  c: Record<string, string>;
+}) {
+  const videoId = getYouTubeVideoId(video.url_video);
+  if (!videoId) return null;
+  return (
+    <View
+      style={[
+        s.card,
+        {
+          backgroundColor: c.cardBg,
+          borderColor: c.cardBorder,
+        },
+      ]}
+    >
+      <YouTubePlayer videoId={videoId} height={videoHeight} />
+      <View style={s.videoCardBody}>
+        <Text
+          style={[s.videoCardTitle, { color: c.foreground }]}
+          numberOfLines={2}
+        >
+          {video.titulo}
+        </Text>
+        <View style={s.videoCardFooter}>
+          <Text
+            style={[
+              s.videoCardMeta,
+              { color: c.muted, flex: 1, marginRight: 8 },
+            ]}
+            numberOfLines={1}
+          >
+            {video.pregador || "Avivamento para as Nações"}
+          </Text>
+          {(video.data_publicacao || video.created_at) && (
+            <Text
+              style={[s.videoCardMeta, { color: c.muted }]}
+            >
+              {formatarDataRelativa(
+                video.data_publicacao || video.created_at
+              )}
+            </Text>
+          )}
+        </View>
+      </View>
+    </View>
+  );
+});
+
+const PlaylistCard = React.memo(function PlaylistCard({
+  playlist,
+  c,
+}: {
+  playlist: Playlist;
+  c: Record<string, string>;
+}) {
+  const handlePress = useCallback(() => {
+    Linking.openURL(playlist.url_playlist);
+  }, [playlist.url_playlist]);
+
+  return (
+    <Pressable
+      onPress={handlePress}
+      style={({ pressed }) => [
+        s.card,
+        {
+          backgroundColor: c.cardBg,
+          borderColor: c.cardBorder,
+        },
+        pressed && { opacity: 0.7 },
+      ]}
+    >
+      <View style={{ flexDirection: "row" }}>
+        <LinearGradient
+          colors={["#1e3a5f", "#2d5a8e"]}
+          style={s.playlistLeftBar}
+        >
+          <Text style={s.playlistCount}>
+            {playlist.quantidade_videos}
+          </Text>
+          <Text style={s.playlistCountLabel}>
+            vídeos
+          </Text>
+        </LinearGradient>
+        <View style={s.playlistContent}>
+          <Text
+            style={[
+              s.playlistTitle,
+              { color: c.foreground },
+            ]}
+            numberOfLines={1}
+          >
+            {playlist.nome}
+          </Text>
+          {playlist.descricao && (
+            <Text
+              style={[
+                s.playlistDesc,
+                { color: c.muted },
+              ]}
+              numberOfLines={2}
+            >
+              {playlist.descricao}
+            </Text>
+          )}
+          <View style={s.playlistCta}>
+            <Text
+              style={[
+                s.playlistCtaText,
+                { color: c.primary },
+              ]}
+            >
+              Ver Playlist
+            </Text>
+            <Play size={12} color={c.primary} />
+          </View>
+        </View>
+      </View>
+    </Pressable>
+  );
+});
+
+// ── Main Screen ──
 
 export default function VideosScreen() {
   const { width } = useWindowDimensions();
-  const { isDark } = useTheme();
-  const videoHeight = Math.round((width - 32) * 9 / 16);
+  const { isDark } = useThemeForScreen();
+  const screenReady = useScreenReady();
+  const videoHeight = useMemo(() => Math.round((width - 32) * 9 / 16), [width]);
 
-  const c = {
-    bg: isDark ? "#0E131B" : "#FFFFFF",
-    foreground: isDark ? "#FAFAFA" : "#1D2530",
-    muted: isDark ? "#9DA4AF" : "#627084",
-    primary: isDark ? "#367EE2" : "#123E7D",
-    accent: "#f59e0b",
-    cardBg: isDark ? "#171D26" : "#FFFFFF",
-    cardBorder: isDark ? "#29313D" : "#E2E5E9",
-    mutedBg: isDark ? "#252C37" : "#F3F5F6",
-    primaryLight: isDark
-      ? "rgba(54,126,226,0.10)"
-      : "rgba(18,62,125,0.10)",
-    white: "#FFFFFF",
-  };
+  const c = useMemo(
+    () => ({
+      bg: isDark ? "#0E131B" : "#FFFFFF",
+      foreground: isDark ? "#FAFAFA" : "#1D2530",
+      muted: isDark ? "#9DA4AF" : "#627084",
+      primary: isDark ? "#367EE2" : "#123E7D",
+      accent: "#f59e0b",
+      cardBg: isDark ? "#171D26" : "#FFFFFF",
+      cardBorder: isDark ? "#29313D" : "#E2E5E9",
+      mutedBg: isDark ? "#252C37" : "#F3F5F6",
+      primaryLight: isDark
+        ? "rgba(54,126,226,0.10)"
+        : "rgba(18,62,125,0.10)",
+      white: "#FFFFFF",
+    }),
+    [isDark]
+  );
 
   const { data: videoDestaque, isLoading: loadingDestaque } = useQuery({
     queryKey: ["video-destaque"],
@@ -63,17 +200,17 @@ export default function VideosScreen() {
 
   const isLoading = loadingDestaque || loadingRecentes;
 
-  const formatarDataCompleta = (dataString: string) => {
+  const formatarDataCompleta = useCallback((dataString: string) => {
     return new Date(dataString).toLocaleDateString("pt-BR", {
       day: "numeric",
       month: "long",
       year: "numeric",
     });
-  };
+  }, []);
 
   // ── Skeleton Loading ──
 
-  if (isLoading) {
+  if (!screenReady || isLoading) {
     return (
       <ScrollView
         style={{ flex: 1, backgroundColor: c.bg }}
@@ -163,10 +300,13 @@ export default function VideosScreen() {
 
   // ── Main Content ──
 
+  const destaqueVideoId = videoDestaque ? getYouTubeVideoId(videoDestaque.url_video) : null;
+
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: c.bg }}
       showsVerticalScrollIndicator={false}
+      removeClippedSubviews
     >
       <View style={s.container}>
         {/* Hero Section */}
@@ -179,36 +319,32 @@ export default function VideosScreen() {
         </View>
 
         {/* Vídeo em Destaque */}
-        {videoDestaque &&
-          (() => {
-            const videoId = getYouTubeVideoId(videoDestaque.url_video);
-            return videoId ? (
-              <View
-                style={[
-                  s.card,
-                  {
-                    backgroundColor: c.cardBg,
-                    borderColor: c.cardBorder,
-                    marginBottom: 32,
-                  },
-                ]}
+        {videoDestaque && destaqueVideoId && (
+          <View
+            style={[
+              s.card,
+              {
+                backgroundColor: c.cardBg,
+                borderColor: c.cardBorder,
+                marginBottom: 32,
+              },
+            ]}
+          >
+            <YouTubePlayer videoId={destaqueVideoId} height={videoHeight} />
+            <View style={s.featuredBody}>
+              <Text
+                style={[s.featuredTitle, { color: c.foreground }]}
               >
-                <YouTubePlayer videoId={videoId} height={videoHeight} />
-                <View style={s.featuredBody}>
-                  <Text
-                    style={[s.featuredTitle, { color: c.foreground }]}
-                  >
-                    {videoDestaque.titulo}
-                  </Text>
-                  {videoDestaque.data_publicacao && (
-                    <Text style={[s.metaText, { color: c.muted }]}>
-                      {formatarDataCompleta(videoDestaque.data_publicacao)}
-                    </Text>
-                  )}
-                </View>
-              </View>
-            ) : null;
-          })()}
+                {videoDestaque.titulo}
+              </Text>
+              {videoDestaque.data_publicacao && (
+                <Text style={[s.metaText, { color: c.muted }]}>
+                  {formatarDataCompleta(videoDestaque.data_publicacao)}
+                </Text>
+              )}
+            </View>
+          </View>
+        )}
 
         {/* Vídeos Recentes */}
         {videosRecentes && videosRecentes.length > 0 && (
@@ -217,52 +353,14 @@ export default function VideosScreen() {
               Vídeos Recentes
             </Text>
             <View style={{ gap: 12 }}>
-              {videosRecentes.map((video) => {
-                const videoId = getYouTubeVideoId(video.url_video);
-                if (!videoId) return null;
-                return (
-                  <View
-                    key={video.id}
-                    style={[
-                      s.card,
-                      {
-                        backgroundColor: c.cardBg,
-                        borderColor: c.cardBorder,
-                      },
-                    ]}
-                  >
-                    <YouTubePlayer videoId={videoId} height={videoHeight} />
-                    <View style={s.videoCardBody}>
-                      <Text
-                        style={[s.videoCardTitle, { color: c.foreground }]}
-                        numberOfLines={2}
-                      >
-                        {video.titulo}
-                      </Text>
-                      <View style={s.videoCardFooter}>
-                        <Text
-                          style={[
-                            s.videoCardMeta,
-                            { color: c.muted, flex: 1, marginRight: 8 },
-                          ]}
-                          numberOfLines={1}
-                        >
-                          {video.pregador || "Avivamento para as Nações"}
-                        </Text>
-                        {(video.data_publicacao || video.created_at) && (
-                          <Text
-                            style={[s.videoCardMeta, { color: c.muted }]}
-                          >
-                            {formatarDataRelativa(
-                              video.data_publicacao || video.created_at
-                            )}
-                          </Text>
-                        )}
-                      </View>
-                    </View>
-                  </View>
-                );
-              })}
+              {videosRecentes.map((video) => (
+                <VideoCard
+                  key={video.id}
+                  video={video}
+                  videoHeight={videoHeight}
+                  c={c}
+                />
+              ))}
             </View>
           </View>
         )}
@@ -275,67 +373,11 @@ export default function VideosScreen() {
             </Text>
             <View style={{ gap: 12 }}>
               {playlists.map((playlist) => (
-                <Pressable
+                <PlaylistCard
                   key={playlist.id}
-                  onPress={() =>
-                    Linking.openURL(playlist.url_playlist)
-                  }
-                  style={({ pressed }) => [
-                    s.card,
-                    {
-                      backgroundColor: c.cardBg,
-                      borderColor: c.cardBorder,
-                    },
-                    pressed && { opacity: 0.7 },
-                  ]}
-                >
-                  <View style={{ flexDirection: "row" }}>
-                    <LinearGradient
-                      colors={["#1e3a5f", "#2d5a8e"]}
-                      style={s.playlistLeftBar}
-                    >
-                      <Text style={s.playlistCount}>
-                        {playlist.quantidade_videos}
-                      </Text>
-                      <Text style={s.playlistCountLabel}>
-                        vídeos
-                      </Text>
-                    </LinearGradient>
-                    <View style={s.playlistContent}>
-                      <Text
-                        style={[
-                          s.playlistTitle,
-                          { color: c.foreground },
-                        ]}
-                        numberOfLines={1}
-                      >
-                        {playlist.nome}
-                      </Text>
-                      {playlist.descricao && (
-                        <Text
-                          style={[
-                            s.playlistDesc,
-                            { color: c.muted },
-                          ]}
-                          numberOfLines={2}
-                        >
-                          {playlist.descricao}
-                        </Text>
-                      )}
-                      <View style={s.playlistCta}>
-                        <Text
-                          style={[
-                            s.playlistCtaText,
-                            { color: c.primary },
-                          ]}
-                        >
-                          Ver Playlist
-                        </Text>
-                        <Play size={12} color={c.primary} />
-                      </View>
-                    </View>
-                  </View>
-                </Pressable>
+                  playlist={playlist}
+                  c={c}
+                />
               ))}
             </View>
           </View>

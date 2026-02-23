@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo, useCallback } from "react";
 import {
   FlatList,
   View,
@@ -13,7 +13,9 @@ import { Images, ExternalLink } from "lucide-react-native";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { getUltimasGalerias } from "@/services/galeriaService";
 import { AppFooter } from "@/components/AppFooter";
-import { useTheme } from "@/hooks/useTheme";
+import { useThemeForScreen } from "@/hooks/useThemeForScreen";
+import { useScreenReady } from "@/hooks/useScreenReady";
+import { useImagePrefetch } from "@/hooks/useImagePrefetch";
 import type { Galeria } from "@/types";
 
 // ── Skeleton Card ──
@@ -43,20 +45,109 @@ function GaleriaCardSkeleton({ c }: { c: Record<string, string> }) {
   );
 }
 
+// ── Memoized Gallery Card ──
+
+const GaleriaCard = React.memo(function GaleriaCard({
+  item,
+  c,
+}: {
+  item: Galeria;
+  c: Record<string, string>;
+}) {
+  const handlePress = useCallback(() => {
+    Linking.openURL(item.url_album);
+  }, [item.url_album]);
+
+  return (
+    <View style={{ paddingHorizontal: 16, marginBottom: 16 }}>
+      <Pressable
+        onPress={handlePress}
+        style={({ pressed }) => pressed && { opacity: 0.85 }}
+      >
+        <View
+          style={[
+            s.card,
+            { backgroundColor: c.cardBg, borderColor: c.cardBorder },
+          ]}
+        >
+          {/* Capa da Galeria */}
+          <View style={s.imageContainer}>
+            {item.capa_url ? (
+              <Image
+                source={{ uri: item.capa_url }}
+                style={s.cardImage}
+                contentFit="cover"
+                cachePolicy="disk"
+                recyclingKey={item.id}
+              />
+            ) : (
+              <View
+                style={[
+                  s.cardImagePlaceholder,
+                  { backgroundColor: c.primary },
+                ]}
+              >
+                <Images size={48} color="#ffffff" />
+              </View>
+            )}
+
+            {/* Overlay com ícone de link externo */}
+            <View style={s.imageOverlay}>
+              <ExternalLink size={24} color="#ffffff" />
+            </View>
+          </View>
+
+          {/* Informações */}
+          <View style={s.cardBody}>
+            <Text
+              style={[s.cardTitle, { color: c.foreground }]}
+              numberOfLines={2}
+            >
+              {item.titulo}
+            </Text>
+            {item.descricao && (
+              <Text
+                style={[s.cardDescription, { color: c.muted }]}
+                numberOfLines={2}
+              >
+                {item.descricao}
+              </Text>
+            )}
+            <Text style={[s.cardDate, { color: c.muted }]}>
+              {new Date(item.data + "T00:00:00").toLocaleDateString(
+                "pt-BR",
+                {
+                  day: "numeric",
+                  month: "long",
+                  year: "numeric",
+                }
+              )}
+            </Text>
+          </View>
+        </View>
+      </Pressable>
+    </View>
+  );
+});
+
 // ── Main Screen ──
 
 export default function GaleriasScreen() {
-  const { isDark } = useTheme();
+  const { isDark } = useThemeForScreen();
+  const screenReady = useScreenReady();
 
-  const c = {
-    bg: isDark ? "#0E131B" : "#FFFFFF",
-    foreground: isDark ? "#FAFAFA" : "#1D2530",
-    muted: isDark ? "#9DA4AF" : "#627084",
-    primary: isDark ? "#367EE2" : "#123E7D",
-    cardBg: isDark ? "#171D26" : "#FFFFFF",
-    cardBorder: isDark ? "#29313D" : "#E2E5E9",
-    overlay: "rgba(0,0,0,0.20)",
-  };
+  const c = useMemo(
+    () => ({
+      bg: isDark ? "#0E131B" : "#FFFFFF",
+      foreground: isDark ? "#FAFAFA" : "#1D2530",
+      muted: isDark ? "#9DA4AF" : "#627084",
+      primary: isDark ? "#367EE2" : "#123E7D",
+      cardBg: isDark ? "#171D26" : "#FFFFFF",
+      cardBorder: isDark ? "#29313D" : "#E2E5E9",
+      overlay: "rgba(0,0,0,0.20)",
+    }),
+    [isDark]
+  );
 
   const { data: galerias, isLoading } = useQuery({
     queryKey: ["galerias"],
@@ -64,9 +155,36 @@ export default function GaleriasScreen() {
     staleTime: 1000 * 60 * 60 * 2,
   });
 
+  const galeriaImageUrls = useMemo(
+    () => galerias?.map((g) => g.capa_url) ?? [],
+    [galerias]
+  );
+  useImagePrefetch(galeriaImageUrls);
+
+  const renderItem = useCallback(
+    ({ item }: { item: Galeria }) => <GaleriaCard item={item} c={c} />,
+    [c]
+  );
+
+  const keyExtractor = useCallback((item: Galeria) => item.id, []);
+
+  const ListHeader = useMemo(
+    () => (
+      <View style={s.heroSection}>
+        <Text style={[s.heroTitle, { color: c.primary }]}>
+          Galerias de Fotos
+        </Text>
+        <Text style={[s.heroSubtitle, { color: c.muted }]}>
+          Reviva os melhores momentos da nossa igreja
+        </Text>
+      </View>
+    ),
+    [c.primary, c.muted]
+  );
+
   // ── Skeleton Loading ──
 
-  if (isLoading) {
+  if (!screenReady || isLoading) {
     return (
       <View style={{ flex: 1, backgroundColor: c.bg }}>
         {/* Hero Skeleton */}
@@ -92,89 +210,11 @@ export default function GaleriasScreen() {
     <FlatList
       style={{ flex: 1, backgroundColor: c.bg }}
       data={galerias}
-      keyExtractor={(item) => item.id}
+      keyExtractor={keyExtractor}
       contentContainerStyle={{ paddingBottom: 16 }}
       showsVerticalScrollIndicator={false}
-      ListHeaderComponent={
-        <View style={s.heroSection}>
-          <Text style={[s.heroTitle, { color: c.primary }]}>
-            Galerias de Fotos
-          </Text>
-          <Text style={[s.heroSubtitle, { color: c.muted }]}>
-            Reviva os melhores momentos da nossa igreja
-          </Text>
-        </View>
-      }
-      renderItem={({ item }) => (
-        <View style={{ paddingHorizontal: 16, marginBottom: 16 }}>
-          <Pressable
-            onPress={() => Linking.openURL(item.url_album)}
-            style={({ pressed }) => pressed && { opacity: 0.85 }}
-          >
-            <View
-              style={[
-                s.card,
-                { backgroundColor: c.cardBg, borderColor: c.cardBorder },
-              ]}
-            >
-              {/* Capa da Galeria */}
-              <View style={s.imageContainer}>
-                {item.capa_url ? (
-                  <Image
-                    source={{ uri: item.capa_url }}
-                    style={s.cardImage}
-                    contentFit="cover"
-                    cachePolicy="disk"
-                    transition={300}
-                  />
-                ) : (
-                  <View
-                    style={[
-                      s.cardImagePlaceholder,
-                      { backgroundColor: c.primary },
-                    ]}
-                  >
-                    <Images size={48} color="#ffffff" />
-                  </View>
-                )}
-
-                {/* Overlay com ícone de link externo */}
-                <View style={s.imageOverlay}>
-                  <ExternalLink size={24} color="#ffffff" />
-                </View>
-              </View>
-
-              {/* Informações */}
-              <View style={s.cardBody}>
-                <Text
-                  style={[s.cardTitle, { color: c.foreground }]}
-                  numberOfLines={2}
-                >
-                  {item.titulo}
-                </Text>
-                {item.descricao && (
-                  <Text
-                    style={[s.cardDescription, { color: c.muted }]}
-                    numberOfLines={2}
-                  >
-                    {item.descricao}
-                  </Text>
-                )}
-                <Text style={[s.cardDate, { color: c.muted }]}>
-                  {new Date(item.data + "T00:00:00").toLocaleDateString(
-                    "pt-BR",
-                    {
-                      day: "numeric",
-                      month: "long",
-                      year: "numeric",
-                    }
-                  )}
-                </Text>
-              </View>
-            </View>
-          </Pressable>
-        </View>
-      )}
+      ListHeaderComponent={ListHeader}
+      renderItem={renderItem}
       ListFooterComponent={<AppFooter />}
       ListEmptyComponent={
         <View style={s.emptyState}>
@@ -184,6 +224,10 @@ export default function GaleriasScreen() {
           </Text>
         </View>
       }
+      maxToRenderPerBatch={5}
+      windowSize={7}
+      removeClippedSubviews
+      initialNumToRender={4}
     />
   );
 }
