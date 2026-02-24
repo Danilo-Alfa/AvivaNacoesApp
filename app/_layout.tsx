@@ -9,20 +9,28 @@ import { queryClient, persistOptions } from "@/lib/queryClient";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { initStorage, mmkvStorage } from "@/lib/storage";
 import { setupOnlineManager } from "@/lib/onlineManager";
+import { setupNotificationHandler } from "@/services/notificationService";
 import { DrawerMenu } from "@/components/DrawerMenu";
 import { LiveFAB } from "@/components/LiveFAB";
 import { AppHeader } from "@/components/AppHeader";
 import { DrawerProvider, useDrawer } from "@/contexts/DrawerContext";
 import Toast from "react-native-toast-message";
+import { useNotifications } from "@/hooks/useNotifications";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 // Setup React Query online manager with NetInfo (runs once at module scope)
 setupOnlineManager();
 
+// Setup notification handler (runs once at module scope)
+setupNotificationHandler();
+
 function AppContent() {
   const { colorScheme, setColorScheme } = useColorScheme();
   const { drawerOpen, openDrawer, closeDrawer } = useDrawer();
+
+  // Initialize push notifications (register token, listeners)
+  useNotifications();
 
   // useLayoutEffect runs BEFORE paint — eliminates the light→dark flash
   useLayoutEffect(() => {

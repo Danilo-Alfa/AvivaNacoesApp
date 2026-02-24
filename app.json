@@ -15,7 +15,10 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.avivanacoes.app"
+      "bundleIdentifier": "com.avivanacoes.app",
+      "infoPlist": {
+        "UIBackgroundModes": ["remote-notification"]
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -30,7 +33,14 @@
       "bundler": "metro"
     },
     "plugins": [
-      "expo-router"
+      "expo-router",
+      [
+        "expo-notifications",
+        {
+          "color": "#1e3a5f",
+          "defaultChannel": "live-alerts"
+        }
+      ]
     ],
     "updates": {
       "url": "https://u.expo.dev/your-project-id"

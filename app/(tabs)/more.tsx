@@ -1,15 +1,21 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { ScrollView, View, Text, Pressable, Switch, Alert } from "react-native";
 import { useRouter } from "expo-router";
 import Constants from "expo-constants";
 import {
   MessageCircle,
   Moon,
+  Bell,
   Info,
   Trash2,
   ChevronRight,
   ExternalLink,
 } from "lucide-react-native";
+import {
+  getNotificationPreferences,
+  setNotificationPreferences,
+  registerForPushNotifications,
+} from "@/services/notificationService";
 import { Card, CardContent } from "@/components/ui/Card";
 import { useThemeForScreen } from "@/hooks/useThemeForScreen";
 import { AppFooter } from "@/components/AppFooter";
@@ -23,6 +29,21 @@ export default function MoreScreen() {
   const { isDark, toggleTheme } = useThemeForScreen();
   const appVersion = Constants.expoConfig?.version || "1.0.0";
   const iconPrimary = isDark ? "#60a5fa" : "#1e3a5f";
+
+  const [liveNotifications, setLiveNotifications] = useState(true);
+
+  useEffect(() => {
+    const prefs = getNotificationPreferences();
+    setLiveNotifications(prefs.live_notifications);
+  }, []);
+
+  const handleToggleLiveNotifications = (value: boolean) => {
+    setLiveNotifications(value);
+    setNotificationPreferences({ live_notifications: value });
+    if (value) {
+      registerForPushNotifications();
+    }
+  };
 
   const handleClearCache = () => {
     Alert.alert(
@@ -96,6 +117,28 @@ export default function MoreScreen() {
             <Switch
               value={isDark}
               onValueChange={toggleTheme}
+              trackColor={{ false: isDark ? "#334155" : "#e2e8f0", true: iconPrimary }}
+              thumbColor="#ffffff"
+            />
+          </CardContent>
+        </Card>
+
+        <Card className="mb-6">
+          <CardContent className="flex-row items-center">
+            <View className="w-10 h-10 bg-primary/10 rounded-full items-center justify-center mr-3">
+              <Bell size={20} color={iconPrimary} />
+            </View>
+            <View className="flex-1">
+              <Text className="text-base font-semibold text-foreground">
+                Notificacoes de Live
+              </Text>
+              <Text className="text-xs text-muted-foreground">
+                Receber aviso quando uma live comecar
+              </Text>
+            </View>
+            <Switch
+              value={liveNotifications}
+              onValueChange={handleToggleLiveNotifications}
               trackColor={{ false: isDark ? "#334155" : "#e2e8f0", true: iconPrimary }}
               thumbColor="#ffffff"
             />

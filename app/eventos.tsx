@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useEffect, useMemo } from "react";
+import React, { useState, useCallback, useRef, useMemo } from "react";
 import {
   ScrollView,
   View,
@@ -8,10 +8,11 @@ import {
   Pressable,
   Animated,
   Dimensions,
+  StyleSheet,
 } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { useQuery } from "@tanstack/react-query";
 import { Calendar, Clock, MapPin, Star, X, ChevronLeft, ChevronRight } from "lucide-react-native";
-import { Badge } from "@/components/ui/Badge";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Image } from "expo-image";
 import {
@@ -51,7 +52,182 @@ interface EventoCardColors {
   primaryLight: string;
 }
 
-function EventoCard({ evento, destaque = false, colors }: { evento: Evento; destaque?: boolean; colors: EventoCardColors }) {
+function EventoCardDestaque({ evento, colors }: { evento: Evento; colors: EventoCardColors }) {
+  return (
+    <View style={ds.card}>
+      {/* Imagem hero com overlay */}
+      <View style={ds.imageContainer}>
+        {evento.imagem_url ? (
+          <>
+            <Image
+              source={{ uri: evento.imagem_url }}
+              style={StyleSheet.absoluteFill}
+              contentFit="cover"
+              cachePolicy="disk"
+            />
+            <LinearGradient
+              colors={["transparent", "rgba(0,0,0,0.75)"]}
+              style={StyleSheet.absoluteFill}
+            />
+          </>
+        ) : (
+          <>
+            <LinearGradient
+              colors={[colors.primary, "#6366f1"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={StyleSheet.absoluteFill}
+            />
+            <View style={ds.noImageDecor}>
+              <Calendar size={80} color="rgba(255,255,255,0.08)" />
+            </View>
+          </>
+        )}
+        {/* Badge + Título sobre a imagem */}
+        <View style={ds.imageOverlay}>
+          <View style={ds.badge}>
+            <Star size={10} color="#ffffff" fill="#ffffff" />
+            <Text style={ds.badgeText}>DESTAQUE</Text>
+          </View>
+          <Text style={ds.title} numberOfLines={2}>
+            {evento.titulo}
+          </Text>
+          {evento.descricao && (
+            <Text style={ds.description} numberOfLines={2}>
+              {evento.descricao}
+            </Text>
+          )}
+        </View>
+      </View>
+
+      {/* Informações */}
+      <View style={[ds.infoContainer, { backgroundColor: colors.cardBg, borderColor: colors.cardBorder }]}>
+        <View style={ds.infoRow}>
+          <View style={[ds.iconBox, { backgroundColor: colors.primaryLight }]}>
+            <Calendar size={15} color={colors.primary} />
+          </View>
+          <Text style={[ds.infoText, { color: colors.foreground }]}>
+            {formatarPeriodo(evento.data_inicio, evento.data_fim)}
+          </Text>
+        </View>
+        <View style={[ds.divider, { backgroundColor: colors.cardBorder }]} />
+        <View style={ds.infoRow}>
+          <View style={[ds.iconBox, { backgroundColor: colors.primaryLight }]}>
+            <Clock size={15} color={colors.primary} />
+          </View>
+          <Text style={[ds.infoText, { color: colors.foreground }]}>
+            {formatarHorario(evento.data_inicio, evento.data_fim)}
+          </Text>
+        </View>
+        {evento.local && (
+          <>
+            <View style={[ds.divider, { backgroundColor: colors.cardBorder }]} />
+            <View style={ds.infoRow}>
+              <View style={[ds.iconBox, { backgroundColor: colors.primaryLight }]}>
+                <MapPin size={15} color={colors.primary} />
+              </View>
+              <Text style={[ds.infoText, { color: colors.foreground }]} numberOfLines={1}>
+                {evento.local}
+              </Text>
+            </View>
+          </>
+        )}
+      </View>
+    </View>
+  );
+}
+
+// Estilos do card destaque
+const ds = StyleSheet.create({
+  card: {
+    marginBottom: 20,
+    borderRadius: 20,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  imageContainer: {
+    width: "100%",
+    height: 260,
+    position: "relative",
+  },
+  noImageDecor: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "center",
+    justifyContent: "center",
+    opacity: 1,
+  },
+  imageOverlay: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: 20,
+  },
+  badge: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    gap: 5,
+    backgroundColor: "rgba(99,102,241,0.85)",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+    marginBottom: 10,
+  },
+  badgeText: {
+    color: "#ffffff",
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: "800",
+    color: "#ffffff",
+    marginBottom: 4,
+  },
+  description: {
+    fontSize: 14,
+    color: "rgba(255,255,255,0.8)",
+    lineHeight: 20,
+  },
+  infoContainer: {
+    paddingVertical: 6,
+    paddingHorizontal: 16,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+    borderWidth: 1,
+    borderTopWidth: 0,
+  },
+  infoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 12,
+  },
+  iconBox: {
+    width: 30,
+    height: 30,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  infoText: {
+    fontSize: 14,
+    fontWeight: "500",
+    flex: 1,
+  },
+  divider: {
+    height: StyleSheet.hairlineWidth,
+    marginLeft: 40,
+  },
+});
+
+function EventoCard({ evento, colors }: { evento: Evento; colors: EventoCardColors }) {
   return (
     <View
       style={{
@@ -66,18 +242,13 @@ function EventoCard({ evento, destaque = false, colors }: { evento: Evento; dest
       {evento.imagem_url && (
         <Image
           source={{ uri: evento.imagem_url }}
-          style={{ width: "100%", height: destaque ? 220 : 160 }}
+          style={{ width: "100%", height: 160 }}
           contentFit="cover"
           cachePolicy="disk"
         />
       )}
       <View style={{ padding: 16 }}>
-        {destaque && (
-          <View style={{ marginBottom: 8 }}>
-            <Badge label="DESTAQUE" icon={<Star size={10} color="#ffffff" />} />
-          </View>
-        )}
-        <Text style={{ fontSize: destaque ? 22 : 18, fontWeight: "700", color: colors.foreground, marginBottom: 4 }}>
+        <Text style={{ fontSize: 18, fontWeight: "700", color: colors.foreground, marginBottom: 4 }}>
           {evento.titulo}
         </Text>
         {evento.descricao && (
@@ -334,7 +505,7 @@ export default function EventosScreen() {
               Eventos em Destaque
             </Text>
             {eventosDestaque.map((e) => (
-              <EventoCard key={e.id} evento={e} destaque colors={cardColors} />
+              <EventoCardDestaque key={e.id} evento={e} colors={cardColors} />
             ))}
           </>
         )}

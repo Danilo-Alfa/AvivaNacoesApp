@@ -11,12 +11,13 @@ import * as Linking from "expo-linking";
 import { Image } from "expo-image";
 import { WebView } from "react-native-webview";
 import { useQuery } from "@tanstack/react-query";
-import { FileText, ExternalLink } from "lucide-react-native";
+import { FileText, ExternalLink, WifiOff, RefreshCw } from "lucide-react-native";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { getUltimosJornais } from "@/services/jornalService";
 import { AppFooter } from "@/components/AppFooter";
 import { useThemeForScreen } from "@/hooks/useThemeForScreen";
 import { useScreenReady } from "@/hooks/useScreenReady";
+import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -132,6 +133,8 @@ export default function JornalScreen() {
   const { isDark } = useThemeForScreen();
   const [webviewCarregando, setWebviewCarregando] = useState(true);
   const [shouldLoadWebView, setShouldLoadWebView] = useState(false);
+  const [webviewErro, setWebviewErro] = useState(false);
+  const { isOffline } = useNetworkStatus();
 
   const screenReady = useScreenReady();
 
@@ -168,6 +171,19 @@ export default function JornalScreen() {
 
   const handleWebViewLoaded = useCallback(() => {
     setWebviewCarregando(false);
+    setWebviewErro(false);
+  }, []);
+
+  const handleWebViewError = useCallback(() => {
+    setWebviewCarregando(false);
+    setWebviewErro(true);
+  }, []);
+
+  const handleRetry = useCallback(() => {
+    setWebviewErro(false);
+    setWebviewCarregando(true);
+    setShouldLoadWebView(false);
+    setTimeout(() => setShouldLoadWebView(true), 300);
   }, []);
 
   // ── Loading ──
@@ -236,40 +252,76 @@ export default function JornalScreen() {
           {/* Área de Visualização */}
           <View style={[s.webviewWrapper, { backgroundColor: c.mutedBg }]}>
             <View style={[s.webviewContainer, { backgroundColor: c.bg }]}>
-              {(webviewCarregando || !shouldLoadWebView) && (
+              {(isOffline || webviewErro) ? (
                 <View
                   style={[
                     s.webviewLoading,
                     { backgroundColor: c.mutedBg },
                   ]}
                 >
-                  <FileText size={40} color={c.muted} />
-                  <Text style={[s.webviewLoadingText, { color: c.muted }]}>
-                    Carregando jornal...
+                  <WifiOff size={40} color={c.muted} />
+                  <Text style={[s.offlineTitle, { color: c.foreground }]}>
+                    Sem conexão com a internet
                   </Text>
+                  <Text style={[s.offlineSubtitle, { color: c.muted }]}>
+                    Conecte-se à internet para visualizar o jornal
+                  </Text>
+                  {!isOffline && (
+                    <Pressable
+                      onPress={handleRetry}
+                      style={({ pressed }) => [
+                        s.retryButton,
+                        { backgroundColor: c.primary },
+                        pressed && { opacity: 0.8 },
+                      ]}
+                    >
+                      <RefreshCw size={16} color={c.primaryFg} />
+                      <Text style={[s.retryButtonText, { color: c.primaryFg }]}>
+                        Tentar novamente
+                      </Text>
+                    </Pressable>
+                  )}
                 </View>
-              )}
-              {shouldLoadWebView && (
-                <WebView
-                  source={{ uri: embedUrl }}
-                  style={{
-                    flex: 1,
-                    opacity: webviewCarregando ? 0 : 1,
-                  }}
-                  allowsFullScreenVideo
-                  javaScriptEnabled
-                  domStorageEnabled
-                  allowsInlineMediaPlayback
-                  nestedScrollEnabled
-                  scalesPageToFit={ehPdf}
-                  onLoadEnd={handleWebViewLoaded}
-                  startInLoadingState={false}
-                  originWhitelist={["*"]}
-                  mixedContentMode="compatibility"
-                  allowsBackForwardNavigationGestures={false}
-                  cacheEnabled
-                  cacheMode="LOAD_CACHE_ELSE_NETWORK"
-                />
+              ) : (
+                <>
+                  {(webviewCarregando || !shouldLoadWebView) && (
+                    <View
+                      style={[
+                        s.webviewLoading,
+                        { backgroundColor: c.mutedBg },
+                      ]}
+                    >
+                      <FileText size={40} color={c.muted} />
+                      <Text style={[s.webviewLoadingText, { color: c.muted }]}>
+                        Carregando jornal...
+                      </Text>
+                    </View>
+                  )}
+                  {shouldLoadWebView && (
+                    <WebView
+                      source={{ uri: embedUrl }}
+                      style={{
+                        flex: 1,
+                        opacity: webviewCarregando ? 0 : 1,
+                      }}
+                      allowsFullScreenVideo
+                      javaScriptEnabled
+                      domStorageEnabled
+                      allowsInlineMediaPlayback
+                      nestedScrollEnabled
+                      scalesPageToFit={ehPdf}
+                      onLoadEnd={handleWebViewLoaded}
+                      onError={handleWebViewError}
+                      onHttpError={handleWebViewError}
+                      startInLoadingState={false}
+                      originWhitelist={["*"]}
+                      mixedContentMode="compatibility"
+                      allowsBackForwardNavigationGestures={false}
+                      cacheEnabled
+                      cacheMode="LOAD_CACHE_ELSE_NETWORK"
+                    />
+                  )}
+                </>
               )}
             </View>
           </View>
@@ -453,6 +505,33 @@ const s = StyleSheet.create({
   },
   listDate: {
     fontSize: 12,
+  },
+
+  // Offline State
+  offlineTitle: {
+    fontSize: 16,
+    fontWeight: "600" as const,
+    marginTop: 12,
+    textAlign: "center" as const,
+  },
+  offlineSubtitle: {
+    fontSize: 13,
+    marginTop: 4,
+    textAlign: "center" as const,
+    paddingHorizontal: 24,
+  },
+  retryButton: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 10,
+    marginTop: 16,
+  },
+  retryButtonText: {
+    fontSize: 13,
+    fontWeight: "600" as const,
   },
 
   // Empty State

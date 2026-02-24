@@ -178,3 +178,34 @@ export interface ChatMensagem {
   mensagem: string;
   created_at: string;
 }
+
+export interface FotoCarousel {
+  id: string;
+  url_imagem: string;
+  titulo: string | null;
+  link_url: string | null;
+  ordem: number;
+  ativo: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+// =====================================================
+// Push Notification Types
+// =====================================================
+
+export interface PushTokenRegistration {
+  token: string;
+  platform: 'ios' | 'android';
+  device_name: string | null;
+  app_version: string;
+}
+
+export interface PushTokenResponse {
+  id: string;
+  token: string;
+  platform: string;
+  ativo: boolean;
+  created_at: string;
+  updated_at: string;
+}

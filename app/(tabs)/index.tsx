@@ -6,6 +6,8 @@ import {
   Pressable,
   useWindowDimensions,
   StyleSheet,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from "react-native";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
@@ -19,9 +21,12 @@ import {
   Church,
 } from "lucide-react-native";
 import { YouTubePlayer } from "@/components/YouTubePlayer";
+import { PhotoCarousel } from "@/components/PhotoCarousel";
+import { LazySection } from "@/components/LazySection";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { AppFooter } from "@/components/AppFooter";
 import { versiculoService } from "@/services/versiculoService";
+import { carouselService } from "@/services/carouselService";
 import { YOUTUBE_VIDEO_ID, getProximoCulto } from "@/lib/constants";
 import type { Versiculo } from "@/types";
 import { useThemeForScreen } from "@/hooks/useThemeForScreen";
@@ -148,7 +153,19 @@ export default function HomeScreen() {
     staleTime: 1000 * 60 * 60,
   });
 
+  const { data: carouselPhotos } = useQuery({
+    queryKey: ["carousel-fotos"],
+    queryFn: () => carouselService.getFotosAtivas(),
+    staleTime: 1000 * 60 * 30,
+  });
+
   useImagePrefetch(useMemo(() => [versiculoDoDia?.url_imagem], [versiculoDoDia]));
+
+  const carouselImageUrls = useMemo(
+    () => carouselPhotos?.map((f) => f.url_imagem) ?? [],
+    [carouselPhotos]
+  );
+  useImagePrefetch(carouselImageUrls);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -164,6 +181,16 @@ export default function HomeScreen() {
     const mes = dataObj.toLocaleDateString("pt-BR", { month: "long" });
     return `Versículo do dia ${dia} de ${mes}`;
   }, []);
+
+  const [scrollY, setScrollY] = useState(0);
+  const { height: screenHeight } = useWindowDimensions();
+
+  const handleScroll = useCallback(
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      setScrollY(e.nativeEvent.contentOffset.y);
+    },
+    []
+  );
 
   const cardWidth = useMemo(() => (width - 48) / 2, [width]);
   const logoWidth = useMemo(() => (width - 80) / 3, [width]);
@@ -211,6 +238,8 @@ export default function HomeScreen() {
       style={{ flex: 1, backgroundColor: c.bg }}
       showsVerticalScrollIndicator={false}
       removeClippedSubviews
+      onScroll={handleScroll}
+      scrollEventThrottle={100}
     >
         {/* Hero Banner */}
         <Image
@@ -267,9 +296,21 @@ export default function HomeScreen() {
           </Pressable>
 
           {/* YouTube Video */}
-          <View style={styles.videoContainer}>
-            <YouTubePlayer videoId={YOUTUBE_VIDEO_ID} height={videoHeight} />
-          </View>
+          <LazySection
+            scrollY={scrollY}
+            viewportHeight={screenHeight}
+            threshold={500}
+            estimatedHeight={videoHeight}
+            placeholder={
+              <View style={[styles.videoContainer, { backgroundColor: '#000' }]}>
+                <Skeleton width="100%" height={videoHeight} borderRadius={0} />
+              </View>
+            }
+          >
+            <View style={styles.videoContainer}>
+              <YouTubePlayer videoId={YOUTUBE_VIDEO_ID} height={videoHeight} />
+            </View>
+          </LazySection>
         </View>
 
         {/* Explore Nossa Igreja */}
@@ -289,6 +330,16 @@ export default function HomeScreen() {
             ))}
           </View>
         </View>
+
+        {/* Carrossel de Fotos */}
+        {carouselPhotos && carouselPhotos.length > 0 && (
+          <View style={{ paddingHorizontal: 16, paddingVertical: 48 }}>
+            <Text style={[styles.sectionHeading, { color: c.foreground, textAlign: "center", marginBottom: 24 }]}>
+              Momentos da Semana
+            </Text>
+            <PhotoCarousel photos={carouselPhotos} colors={c} />
+          </View>
+        )}
 
         {/* Ministerios */}
         <View style={{ paddingHorizontal: 16, paddingVertical: 48 }}>
