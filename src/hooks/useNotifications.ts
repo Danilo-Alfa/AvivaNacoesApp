@@ -1,15 +1,17 @@
 import { useEffect, useRef } from 'react';
 import { useRouter } from 'expo-router';
-import * as Notifications from 'expo-notifications';
 import {
   registerForPushNotifications,
   getNotificationPreferences,
+  addNotificationReceivedListener,
+  addNotificationResponseReceivedListener,
+  getLastNotificationResponseAsync,
 } from '@/services/notificationService';
 
 export function useNotifications() {
   const router = useRouter();
-  const notificationListener = useRef<Notifications.EventSubscription | null>(null);
-  const responseListener = useRef<Notifications.EventSubscription | null>(null);
+  const notificationListener = useRef<{ remove: () => void } | null>(null);
+  const responseListener = useRef<{ remove: () => void } | null>(null);
 
   useEffect(() => {
     const prefs = getNotificationPreferences();
@@ -21,25 +23,25 @@ export function useNotifications() {
     );
 
     // Listener: notificacao recebida em foreground
-    notificationListener.current = Notifications.addNotificationReceivedListener(
-      (notification) => {
-        console.log('Notificacao recebida:', notification.request.content.title);
-      }
-    );
+    addNotificationReceivedListener((notification) => {
+      console.log('Notificacao recebida:', notification.request.content.title);
+    }).then((sub) => {
+      notificationListener.current = sub;
+    });
 
     // Listener: usuario tocou na notificacao
-    responseListener.current = Notifications.addNotificationResponseReceivedListener(
-      (response) => {
-        const data = response.notification.request.content.data;
+    addNotificationResponseReceivedListener((response) => {
+      const data = response.notification.request.content.data;
 
-        if (data?.type === 'live_started' || data?.screen === 'live') {
-          router.push('/(tabs)/live');
-        }
+      if (data?.type === 'live_started' || data?.screen === 'live') {
+        router.push('/(tabs)/live');
       }
-    );
+    }).then((sub) => {
+      responseListener.current = sub;
+    });
 
     // Cold start: app aberto via toque na notificacao
-    Notifications.getLastNotificationResponseAsync().then((response) => {
+    getLastNotificationResponseAsync().then((response) => {
       if (response) {
         const data = response.notification.request.content.data;
         if (data?.type === 'live_started' || data?.screen === 'live') {

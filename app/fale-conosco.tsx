@@ -66,29 +66,7 @@ export default function FaleConoscoScreen() {
 
     setEnviando(true);
     try {
-      // Enviar email via EmailJS REST API
-      const response = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          service_id: process.env.EXPO_PUBLIC_EMAILJS_SERVICE_ID,
-          template_id: process.env.EXPO_PUBLIC_EMAILJS_TEMPLATE_ID,
-          user_id: process.env.EXPO_PUBLIC_EMAILJS_PUBLIC_KEY,
-          template_params: {
-            from_name: nome,
-            from_email: email,
-            phone: telefone || "Não informado",
-            subject: assunto,
-            message: mensagem,
-          },
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Falha ao enviar email");
-      }
-
-      // Salvar no Supabase
+      // Salvar no Supabase e notificar via WhatsApp (pelo backend)
       await salvarMensagemContato(
         nome.trim(),
         email.trim(),

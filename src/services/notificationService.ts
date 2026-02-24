@@ -1,4 +1,3 @@
-import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
@@ -11,21 +10,41 @@ const PUSH_TOKEN_KEY = 'push_token';
 const NOTIFICATION_PREFS_KEY = 'notification_preferences';
 const ANDROID_CHANNEL_ID = 'live-alerts';
 
+// ─── Detectar Expo Go ─────────────────────────────────
+function isExpoGo(): boolean {
+  return Constants.appOwnership === 'expo';
+}
+
+// ─── Import dinamico do expo-notifications ────────────
+// Evita o side-effect DevicePushTokenAutoRegistration no Expo Go
+async function getNotificationsModule() {
+  return await import('expo-notifications');
+}
+
 // ─── Configurar comportamento ao receber notificacao ──
 // Chamar no module scope do _layout.tsx (antes dos componentes)
 export function setupNotificationHandler() {
-  Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-      shouldShowAlert: true,
-      shouldPlaySound: true,
-      shouldSetBadge: false,
-    }),
+  if (isExpoGo()) return;
+
+  getNotificationsModule().then((Notifications) => {
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: false,
+      }),
+    });
+  }).catch(() => {
+    // Silent fail em ambiente de desenvolvimento
   });
 }
 
 // ─── Canal Android ────────────────────────────────────
 export async function setupAndroidChannel(): Promise<void> {
-  if (Platform.OS === 'android') {
+  if (Platform.OS !== 'android') return;
+
+  try {
+    const Notifications = await getNotificationsModule();
     await Notifications.setNotificationChannelAsync(ANDROID_CHANNEL_ID, {
       name: 'Transmissoes ao Vivo',
       description: 'Notificacoes quando uma transmissao ao vivo comeca',
@@ -34,26 +53,35 @@ export async function setupAndroidChannel(): Promise<void> {
       lightColor: '#1e3a5f',
       sound: 'default',
     });
+  } catch {
+    // Silent fail
   }
 }
 
 // ─── Permissoes ───────────────────────────────────────
 export async function requestPermissions(): Promise<boolean> {
-  if (!Device.isDevice) {
-    console.warn('Push notifications requerem um dispositivo fisico');
+  if (!Device.isDevice || isExpoGo()) {
     return false;
   }
 
-  const { status: existingStatus } = await Notifications.getPermissionsAsync();
-  if (existingStatus === 'granted') return true;
+  try {
+    const Notifications = await getNotificationsModule();
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    if (existingStatus === 'granted') return true;
 
-  const { status } = await Notifications.requestPermissionsAsync();
-  return status === 'granted';
+    const { status } = await Notifications.requestPermissionsAsync();
+    return status === 'granted';
+  } catch {
+    return false;
+  }
 }
 
 // ─── Obter Expo Push Token ────────────────────────────
 export async function getExpoPushToken(): Promise<string | null> {
+  if (isExpoGo()) return null;
+
   try {
+    const Notifications = await getNotificationsModule();
     const projectId = Constants.expoConfig?.extra?.eas?.projectId;
     if (!projectId) {
       console.error('EAS projectId nao encontrado no app.json');
@@ -69,12 +97,6 @@ export async function getExpoPushToken(): Promise<string | null> {
 }
 
 // ─── Registrar token no backend ───────────────────────
-// Backend deve implementar: POST /api/notifications/register-token
-// Recebe: { token, platform, device_name, app_version }
-// Faz upsert por token na tabela push_tokens
-// Quando a live e ativada, buscar todos tokens ativos e enviar via:
-//   POST https://exp.host/--/api/v2/push/send
-//   Body: { to: token, title, body, data: { type: 'live_started', screen: 'live' }, channelId: 'live-alerts' }
 export async function registerTokenWithBackend(token: string): Promise<PushTokenResponse | null> {
   try {
     const appVersion = Constants.expoConfig?.version || '1.0.0';
@@ -100,6 +122,8 @@ export async function registerTokenWithBackend(token: string): Promise<PushToken
 
 // ─── Fluxo completo de registro ───────────────────────
 export async function registerForPushNotifications(): Promise<string | null> {
+  if (isExpoGo()) return null;
+
   const hasPermission = await requestPermissions();
   if (!hasPermission) return null;
 
@@ -115,6 +139,29 @@ export async function registerForPushNotifications(): Promise<string | null> {
   }
 
   return token;
+}
+
+// ─── Listeners (para uso no hook) ─────────────────────
+export async function addNotificationReceivedListener(
+  callback: (notification: any) => void,
+) {
+  if (isExpoGo()) return null;
+  const Notifications = await getNotificationsModule();
+  return Notifications.addNotificationReceivedListener(callback);
+}
+
+export async function addNotificationResponseReceivedListener(
+  callback: (response: any) => void,
+) {
+  if (isExpoGo()) return null;
+  const Notifications = await getNotificationsModule();
+  return Notifications.addNotificationResponseReceivedListener(callback);
+}
+
+export async function getLastNotificationResponseAsync() {
+  if (isExpoGo()) return null;
+  const Notifications = await getNotificationsModule();
+  return Notifications.getLastNotificationResponseAsync();
 }
 
 // ─── Preferencias de notificacao ──────────────────────
