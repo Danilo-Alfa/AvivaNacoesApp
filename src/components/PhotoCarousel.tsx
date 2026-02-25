@@ -2,16 +2,27 @@ import React, { useRef, useState, useCallback, useEffect } from 'react';
 import {
   FlatList,
   View,
+  Text,
   useWindowDimensions,
   StyleSheet,
   ViewToken,
 } from 'react-native';
 import { Image } from 'expo-image';
 
+const DIAS_SEMANA = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
+
+function formatarDataEvento(dataStr: string): string {
+  const [ano, mes, dia] = dataStr.split('-').map(Number);
+  const date = new Date(ano, mes - 1, dia);
+  const diaSemana = DIAS_SEMANA[date.getDay()];
+  return `${diaSemana} (${String(dia).padStart(2, '0')}/${String(mes).padStart(2, '0')})`;
+}
+
 interface CarouselPhoto {
   id: string;
   url_imagem: string;
   titulo: string | null;
+  data_evento: string | null;
 }
 
 interface PhotoCarouselProps {
@@ -75,18 +86,39 @@ export const PhotoCarousel = React.memo(function PhotoCarousel({
   }, [startAutoPlay]);
 
   const renderItem = useCallback(
-    ({ item }: { item: CarouselPhoto }) => (
-      <View style={{ width: itemWidth }}>
-        <Image
-          source={{ uri: item.url_imagem }}
-          style={{ width: '100%', aspectRatio: 16 / 9, borderRadius: 16 }}
-          contentFit="cover"
-          cachePolicy="disk"
-          recyclingKey={item.id}
-        />
-      </View>
-    ),
-    [itemWidth]
+    ({ item }: { item: CarouselPhoto }) => {
+      const hasCaption = item.titulo || item.data_evento;
+      return (
+        <View style={{ width: itemWidth }}>
+          <View style={{ position: 'relative' }}>
+            <Image
+              source={{ uri: item.url_imagem }}
+              style={{ width: '100%', aspectRatio: 16 / 9, borderRadius: 16 }}
+              contentFit="cover"
+              cachePolicy="disk"
+              recyclingKey={item.id}
+            />
+            {hasCaption && (
+              <View style={styles.captionWrapper}>
+                <View style={[styles.captionCard, { backgroundColor: colors.bg + 'E6' }]}>
+                  {item.titulo && (
+                    <Text style={[styles.captionTitle, { color: colors.foreground }]}>
+                      {item.titulo}
+                    </Text>
+                  )}
+                  {item.data_evento && (
+                    <Text style={[styles.captionDate, { color: colors.muted }]}>
+                      {formatarDataEvento(item.data_evento)}
+                    </Text>
+                  )}
+                </View>
+              </View>
+            )}
+          </View>
+        </View>
+      );
+    },
+    [itemWidth, colors]
   );
 
   const keyExtractor = useCallback((item: CarouselPhoto) => item.id, []);
@@ -162,5 +194,26 @@ const styles = StyleSheet.create({
   dot: {
     height: 8,
     borderRadius: 4,
+  },
+  captionWrapper: {
+    position: 'absolute',
+    bottom: 10,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+  },
+  captionCard: {
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    alignItems: 'center',
+  },
+  captionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  captionDate: {
+    fontSize: 12,
+    marginTop: 2,
   },
 });

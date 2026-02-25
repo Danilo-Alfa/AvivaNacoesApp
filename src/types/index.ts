@@ -183,6 +183,7 @@ export interface FotoCarousel {
   id: string;
   url_imagem: string;
   titulo: string | null;
+  data_evento: string | null;
   link_url: string | null;
   ordem: number;
   ativo: boolean;

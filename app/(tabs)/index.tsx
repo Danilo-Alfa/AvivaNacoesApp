@@ -156,7 +156,7 @@ export default function HomeScreen() {
   const { data: carouselPhotos } = useQuery({
     queryKey: ["carousel-fotos"],
     queryFn: () => carouselService.getFotosAtivas(),
-    staleTime: 1000 * 60 * 30,
+    staleTime: 1000 * 60 * 60,
   });
 
   useImagePrefetch(useMemo(() => [versiculoDoDia?.url_imagem], [versiculoDoDia]));
@@ -335,7 +335,7 @@ export default function HomeScreen() {
         {carouselPhotos && carouselPhotos.length > 0 && (
           <View style={{ paddingHorizontal: 16, paddingVertical: 48 }}>
             <Text style={[styles.sectionHeading, { color: c.foreground, textAlign: "center", marginBottom: 24 }]}>
-              Momentos da Semana
+              Trabalhos da Semana
             </Text>
             <PhotoCarousel photos={carouselPhotos} colors={c} />
           </View>
