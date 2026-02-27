@@ -435,6 +435,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 12,
     marginBottom: 2,
+    gap: 12,
   },
   /* web: w-10 h-10 rounded-xl shadow-md */
   menuItemIcon: {
@@ -443,7 +444,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 12,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,

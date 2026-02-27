@@ -100,10 +100,16 @@ function LiveChatInner({
     const handleChatLimpo = () => {
       setMensagens([]);
     };
+    const handleConectado = () => {
+      setIsConnected(true);
+      setIsConnecting(false);
+    };
+
     const handleDesconectado = () => {
       setIsConnected(false);
     };
 
+    chatClient.on("conectado", handleConectado);
     chatClient.on("mensagem", handleMensagem);
     chatClient.on("mensagens_anteriores", handleMensagensAnteriores);
     chatClient.on("users_online", handleUsersOnline);
@@ -125,6 +131,7 @@ function LiveChatInner({
       if (digitandoTimeoutRef.current) {
         clearTimeout(digitandoTimeoutRef.current);
       }
+      chatClient.off("conectado", handleConectado);
       chatClient.off("mensagem", handleMensagem);
       chatClient.off("mensagens_anteriores", handleMensagensAnteriores);
       chatClient.off("users_online", handleUsersOnline);

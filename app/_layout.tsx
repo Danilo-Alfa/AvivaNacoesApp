@@ -1,6 +1,6 @@
 import "../global.css";
 import React, { useEffect, useLayoutEffect, useState, useMemo } from "react";
-import { Stack } from "expo-router";
+import { Stack, usePathname } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { View, ActivityIndicator } from "react-native";
 import { useColorScheme } from "nativewind";
@@ -28,6 +28,7 @@ setupNotificationHandler();
 function AppContent() {
   const { colorScheme, setColorScheme } = useColorScheme();
   const { drawerOpen, openDrawer, closeDrawer } = useDrawer();
+  const pathname = usePathname();
 
   // Initialize push notifications (register token, listeners)
   useNotifications();
@@ -80,7 +81,7 @@ function AppContent() {
       </Stack>
 
       <View pointerEvents="box-none" style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, zIndex: 50 }}>
-        <LiveFAB hidden={drawerOpen} />
+        <LiveFAB hidden={drawerOpen || pathname === "/live"} />
       </View>
       <DrawerMenu visible={drawerOpen} onClose={closeDrawer} />
       <Toast />

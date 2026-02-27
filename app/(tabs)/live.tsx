@@ -9,9 +9,31 @@ import {
   Share,
   Linking,
   StyleSheet,
+  Alert,
+  Pressable,
 } from "react-native";
 import { useQuery } from "@tanstack/react-query";
-import { Radio, User, Users } from "lucide-react-native";
+import { LogOut, Radio, User, Users } from "lucide-react-native";
+
+const PALAVRAS_PROIBIDAS = [
+  "puta", "puto", "viado", "buceta", "pau", "piroca", "cu", "merda",
+  "filho da puta", "fdp", "vadia", "vagabunda", "vagabundo", "corno",
+  "caralho", "porra", "foda", "foder", "desgraça", "lixo",
+  "nazi", "nazista", "racista", "negro", "nigga",
+  "shit", "fuck", "ass", "bitch", "damn",
+];
+
+function validarNome(nome: string): string | null {
+  const n = nome.trim();
+  if (n.length < 2) return "Nome deve ter pelo menos 2 caracteres.";
+  if (n.length > 50) return "Nome muito longo.";
+  if (/^[\d\s\W]+$/.test(n)) return "Nome deve conter letras.";
+  const lower = n.toLowerCase();
+  for (const palavra of PALAVRAS_PROIBIDAS) {
+    if (lower.includes(palavra)) return "Nome não permitido.";
+  }
+  return null;
+}
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import LiveChat from "@/components/LiveChat";
@@ -104,8 +126,48 @@ export default function LiveScreen() {
     };
   }, [isRegistered, sessionId]);
 
+  // Auto-registrar com dados salvos quando live ficar ativa
+  useEffect(() => {
+    if (!isLive || isRegistered) return;
+    const savedNome = mmkvStorage.getItem("live_viewer_nome");
+    const savedEmail = mmkvStorage.getItem("live_viewer_email") || "";
+    if (!savedNome) return;
+
+    const autoRegistrar = async () => {
+      setNome(savedNome);
+      setEmail(savedEmail);
+      const newSessionId = gerarSessionId();
+      setSessionId(newSessionId);
+      try {
+        await registrarViewer(newSessionId, savedNome, savedEmail || undefined);
+        setIsRegistered(true);
+      } catch (error) {
+        console.error("Erro ao auto-registrar:", error);
+      }
+    };
+    autoRegistrar();
+  }, [isLive, isRegistered]);
+
+  const handleTrocarNome = useCallback(() => {
+    Alert.alert("Trocar nome", "Deseja entrar com outro nome?", [
+      { text: "Cancelar", style: "cancel" },
+      {
+        text: "Trocar",
+        onPress: () => {
+          if (sessionId) sairDaLive(sessionId);
+          setIsRegistered(false);
+          setSessionId("");
+        },
+      },
+    ]);
+  }, [sessionId]);
+
   const handleRegistrar = useCallback(async () => {
-    if (!nome.trim()) return;
+    const erro = validarNome(nome);
+    if (erro) {
+      Alert.alert("Nome inválido", erro);
+      return;
+    }
     try {
       const newSessionId = gerarSessionId();
       setSessionId(newSessionId);
@@ -265,80 +327,78 @@ export default function LiveScreen() {
   if (isLive && isRegistered) {
     return (
       <View style={{ flex: 1, backgroundColor: c.bg }}>
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 16 }}>
-          {/* Player Card */}
-          <View style={[s.card, { backgroundColor: c.cardBg, borderColor: c.cardBorder, marginHorizontal: 16, marginTop: 16 }]}>
-            {/* Header */}
-            <View style={{ padding: 16, paddingBottom: 12 }}>
-              <Text style={[s.text2xl, s.bold, { color: c.foreground }]} numberOfLines={2}>
-                {config?.titulo || "Transmissão ao Vivo - Avivamento para as Nações"}
-              </Text>
-              <Text style={[s.textSm, { color: c.muted, marginTop: 4 }]} numberOfLines={1}>
-                {config?.descricao || "Assista aos cultos e eventos ao vivo"}
-              </Text>
+        {/* Player Card - fixo no topo */}
+        <View style={[s.card, { backgroundColor: c.cardBg, borderColor: c.cardBorder, marginHorizontal: 16, marginTop: 16 }]}>
+          {/* Header */}
+          <View style={{ padding: 16, paddingBottom: 12 }}>
+            <Text style={[s.text2xl, s.bold, { color: c.foreground }]} numberOfLines={2}>
+              {config?.titulo || "Transmissão ao Vivo - Avivamento para as Nações"}
+            </Text>
+            <Text style={[s.textSm, { color: c.muted, marginTop: 4 }]} numberOfLines={1}>
+              {config?.descricao || "Assista aos cultos e eventos ao vivo"}
+            </Text>
 
-              {/* Badges */}
-              <View style={s.badgeRow}>
-                {config?.mostrar_contador_viewers && (
-                  <Badge
-                    label={`${viewers} assistindo`}
-                    variant="secondary"
-                    icon={<Users size={12} color={c.muted} />}
-                  />
-                )}
+            {/* Badges */}
+            <View style={s.badgeRow}>
+              {config?.mostrar_contador_viewers && (
                 <Badge
-                  label={nome}
-                  variant="outline"
-                  icon={<User size={12} color={c.muted} />}
+                  label={`${viewers} assistindo`}
+                  variant="secondary"
+                  icon={<Users size={12} color={c.muted} />}
                 />
-                <Badge
-                  label="AO VIVO"
-                  variant="destructive"
-                  icon={<Radio size={12} color="#ffffff" />}
-                  style={
-                    config?.cor_badge
-                      ? { backgroundColor: config.cor_badge }
-                      : undefined
-                  }
-                />
-              </View>
-            </View>
-
-            {/* Player */}
-            <View style={{ marginHorizontal: 16, marginBottom: 16 }}>
-              <View style={s.playerBox}>
-                <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-                  <Radio size={48} color="#ffffff" />
-                  <Text style={{ color: "#ffffff", marginTop: 8, fontSize: 14 }}>
-                    Transmissão em andamento
-                  </Text>
-                  <Text style={{ color: "rgba(255,255,255,0.6)", fontSize: 12, marginTop: 4 }}>
-                    Player HLS ativo
-                  </Text>
-                </View>
-              </View>
-            </View>
-
-            {/* Alert */}
-            <View style={[s.alertBox, { backgroundColor: c.mutedBg, marginHorizontal: 16, marginBottom: 16 }]}>
-              <Radio size={16} color={c.primary} />
-              <Text style={[s.textBase, { color: c.muted, flex: 1 }]}>
-                Transmissão ao vivo ativa. Se houver problemas de reprodução,
-                tente reabrir o app ou verificar sua conexão com a internet.
-              </Text>
+              )}
+              <Pressable onPress={handleTrocarNome} style={{ flexDirection: "row", alignItems: "center", gap: 4, borderWidth: 1, borderColor: c.border, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 }}>
+                <User size={12} color={c.muted} />
+                <Text style={{ fontSize: 12, color: c.muted, maxWidth: 100 }} numberOfLines={1}>{nome}</Text>
+                <LogOut size={11} color={c.muted} style={{ opacity: 0.5 }} />
+              </Pressable>
+              <Badge
+                label="AO VIVO"
+                variant="destructive"
+                icon={<Radio size={12} color="#ffffff" />}
+                style={
+                  config?.cor_badge
+                    ? { backgroundColor: config.cor_badge }
+                    : undefined
+                }
+              />
             </View>
           </View>
 
-          {/* Chat */}
-          <View style={{ marginHorizontal: 16, marginTop: 16, height: 500 }}>
-            <LiveChat
-              sessionId={sessionId}
-              nome={nome}
-              email={email}
-              isLive={isLive}
-            />
+          {/* Player */}
+          <View style={{ marginHorizontal: 16, marginBottom: 16 }}>
+            <View style={s.playerBox}>
+              <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+                <Radio size={48} color="#ffffff" />
+                <Text style={{ color: "#ffffff", marginTop: 8, fontSize: 14 }}>
+                  Transmissão em andamento
+                </Text>
+                <Text style={{ color: "rgba(255,255,255,0.6)", fontSize: 12, marginTop: 4 }}>
+                  Player HLS ativo
+                </Text>
+              </View>
+            </View>
           </View>
-        </ScrollView>
+
+          {/* Alert */}
+          <View style={[s.alertBox, { backgroundColor: c.mutedBg, marginHorizontal: 16, marginBottom: 16 }]}>
+            <Radio size={16} color={c.primary} />
+            <Text style={[s.textBase, { color: c.muted, flex: 1 }]}>
+              Transmissão ao vivo ativa. Se houver problemas de reprodução,
+              tente reabrir o app ou verificar sua conexão com a internet.
+            </Text>
+          </View>
+        </View>
+
+        {/* Chat - ocupa o espaço restante com FlatList próprio */}
+        <View style={{ flex: 1, marginHorizontal: 16, marginTop: 16, marginBottom: 16 }}>
+          <LiveChat
+            sessionId={sessionId}
+            nome={nome}
+            email={email}
+            isLive={isLive}
+          />
+        </View>
       </View>
     );
   }
