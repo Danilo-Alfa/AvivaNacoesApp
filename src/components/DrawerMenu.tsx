@@ -462,6 +462,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
+    marginLeft: 8,
   },
 
   /* Live badge — web: px-2 py-1 text-[10px] bg-red-500 rounded-full gap-1.5 */
