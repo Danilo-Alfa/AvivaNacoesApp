@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { FlatList, View, Text, Pressable, Modal, StyleSheet } from "react-native";
+import { SectionList, View, Text, Pressable, Modal, StyleSheet } from "react-native";
 import * as Linking from "expo-linking";
 import { Image, ImageSource } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
@@ -12,6 +12,79 @@ import { useThemeForScreen } from "@/hooks/useThemeForScreen";
 import { useScreenReady } from "@/hooks/useScreenReady";
 import { resolveIgrejaImage } from "@/utils/igrejaImages";
 import type { Igreja } from "@/types";
+
+/* ── Country order ── */
+
+const COUNTRY_ORDER: Record<string, number> = {
+  Brasil: 0,
+  Argentina: 1,
+  "África": 2,
+  EUA: 3,
+};
+
+const COUNTRY_EMOJI: Record<string, string> = {
+  Brasil: "\u{1F1E7}\u{1F1F7}",
+  Argentina: "\u{1F1E6}\u{1F1F7}",
+  "África": "\u{1F30D}",
+  EUA: "\u{1F1FA}\u{1F1F8}",
+  Outras: "\u{1F4CD}",
+};
+
+type IgrejaSection = { title: string; count: number; data: Igreja[] };
+
+function groupByCountry(igrejas: Igreja[]): IgrejaSection[] {
+  const groups = new Map<string, Igreja[]>();
+  for (const igreja of igrejas) {
+    const key = igreja.pais || "Outras";
+    const list = groups.get(key);
+    if (list) list.push(igreja);
+    else groups.set(key, [igreja]);
+  }
+  return Array.from(groups.entries())
+    .sort(([a], [b]) => {
+      const oa = COUNTRY_ORDER[a] ?? 999;
+      const ob = COUNTRY_ORDER[b] ?? 999;
+      return oa - ob;
+    })
+    .map(([title, data]) => ({ title, count: data.length, data }));
+}
+
+/* ── Country section header ── */
+
+function CountrySectionHeader({
+  title,
+  count,
+  c,
+  isDark,
+}: {
+  title: string;
+  count: number;
+  c: Record<string, string>;
+  isDark: boolean;
+}) {
+  const emoji = COUNTRY_EMOJI[title] || COUNTRY_EMOJI.Outras;
+  return (
+    <View style={s.sectionHeader}>
+      <View style={s.sectionHeaderRow}>
+        <View style={[s.sectionAccent, { backgroundColor: c.primary }]} />
+        <Text style={s.sectionEmoji}>{emoji}</Text>
+        <Text style={[s.sectionHeaderTitle, { color: c.foreground }]}>
+          {title}
+        </Text>
+        <View
+          style={[
+            s.sectionCountBadge,
+            { backgroundColor: isDark ? "rgba(54,126,226,0.15)" : "rgba(18,62,125,0.08)" },
+          ]}
+        >
+          <Text style={[s.sectionCountText, { color: c.primary }]}>
+            {count}
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
+}
 
 /* ── Skeleton matching web design ── */
 
@@ -248,6 +321,11 @@ export default function NossasIgrejasScreen() {
     staleTime: 1000 * 60 * 60 * 24,
   });
 
+  const sections = useMemo(
+    () => (igrejas ? groupByCountry(igrejas) : []),
+    [igrejas],
+  );
+
   if (!screenReady || isLoading) {
     return (
       <View style={[s.container, { backgroundColor: c.bg }]}>
@@ -273,10 +351,10 @@ export default function NossasIgrejasScreen() {
 
   return (
     <>
-      <FlatList
+      <SectionList
         style={{ flex: 1, backgroundColor: c.bg }}
         contentContainerStyle={{ paddingBottom: 0 }}
-        data={igrejas}
+        sections={sections}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
           <View style={{ paddingHorizontal: 16, marginBottom: 24 }}>
@@ -287,6 +365,14 @@ export default function NossasIgrejasScreen() {
               onImagePress={(source) => setImagemFullscreen(source)}
             />
           </View>
+        )}
+        renderSectionHeader={({ section }) => (
+          <CountrySectionHeader
+            title={section.title}
+            count={section.count}
+            c={c}
+            isDark={isDark}
+          />
         )}
         ListHeaderComponent={
           <View style={s.heroSection}>
@@ -305,6 +391,7 @@ export default function NossasIgrejasScreen() {
             </Text>
           </View>
         }
+        stickySectionHeadersEnabled={false}
       />
 
       {/* Modal fullscreen da imagem */}
@@ -444,6 +531,40 @@ const s = StyleSheet.create({
   mapsButtonTextDisabled: {
     fontSize: 14,
     fontWeight: "500",
+  },
+
+  /* Section header */
+  sectionHeader: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 20,
+  },
+  sectionHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  sectionAccent: {
+    width: 4,
+    height: 28,
+    borderRadius: 2,
+  },
+  sectionEmoji: {
+    fontSize: 24,
+  },
+  sectionHeaderTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    flex: 1,
+  },
+  sectionCountBadge: {
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  sectionCountText: {
+    fontSize: 13,
+    fontWeight: "700",
   },
 
   /* Empty */

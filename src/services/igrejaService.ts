@@ -6,6 +6,7 @@ export async function getIgrejasAtivas(): Promise<Igreja[]> {
     .from('igrejas')
     .select('*')
     .eq('ativo', true)
+    .order('pais', { ascending: true })
     .order('ordem', { ascending: true });
 
   if (error) throw error;

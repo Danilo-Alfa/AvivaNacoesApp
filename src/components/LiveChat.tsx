@@ -14,6 +14,7 @@ import { MessageCircle, Send, Users } from "lucide-react-native";
 import { Badge } from "@/components/ui/Badge";
 import { chatClient } from "@/services/chatService";
 import { useTheme } from "@/hooks/useTheme";
+import { censurarTexto, contemProfanidade } from "@/lib/profanityFilter";
 import type { ChatMensagem } from "@/types";
 
 interface LiveChatProps {
@@ -145,8 +146,14 @@ function LiveChatInner({
   }, [isLive, sessionId, nome, email, filtrarMensagensDeHoje]);
 
   const handleEnviar = () => {
-    if (!novaMensagem.trim() || !isConnected) return;
-    chatClient.enviarMensagem(novaMensagem.trim());
+    const texto = novaMensagem.trim();
+    if (!texto || !isConnected) return;
+
+    if (contemProfanidade(texto)) {
+      chatClient.enviarMensagem(censurarTexto(texto));
+    } else {
+      chatClient.enviarMensagem(texto);
+    }
     setNovaMensagem("");
     chatClient.parouDigitar();
   };

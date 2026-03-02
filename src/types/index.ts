@@ -45,6 +45,7 @@ export interface Playlist {
 export interface Igreja {
   id: string;
   nome: string;
+  pais: string | null;
   bairro: string | null;
   endereco: string;
   cidade: string | null;
