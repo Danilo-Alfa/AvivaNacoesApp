@@ -3,7 +3,6 @@ import {
   ScrollView,
   View,
   Text,
-  TextInput,
   ActivityIndicator,
   AppState,
   Share,
@@ -14,26 +13,6 @@ import {
 } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { LogOut, Radio, User, Users } from "lucide-react-native";
-
-const PALAVRAS_PROIBIDAS = [
-  "puta", "puto", "viado", "buceta", "pau", "piroca", "cu", "merda",
-  "filho da puta", "fdp", "vadia", "vagabunda", "vagabundo", "corno",
-  "caralho", "porra", "foda", "foder", "desgraça", "lixo",
-  "nazi", "nazista", "racista", "negro", "nigga",
-  "shit", "fuck", "ass", "bitch", "damn",
-];
-
-function validarNome(nome: string): string | null {
-  const n = nome.trim();
-  if (n.length < 2) return "Nome deve ter pelo menos 2 caracteres.";
-  if (n.length > 50) return "Nome muito longo.";
-  if (/^[\d\s\W]+$/.test(n)) return "Nome deve conter letras.";
-  const lower = n.toLowerCase();
-  for (const palavra of PALAVRAS_PROIBIDAS) {
-    if (lower.includes(palavra)) return "Nome não permitido.";
-  }
-  return null;
-}
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import LiveChat from "@/components/LiveChat";
@@ -71,7 +50,6 @@ export default function LiveScreen() {
   }), [isDark]);
 
   const { isOffline } = useNetworkStatus();
-  const [isRegistered, setIsRegistered] = useState(false);
   const [nome, setNome] = useState(
     mmkvStorage.getItem("live_viewer_nome") || ""
   );
@@ -93,16 +71,24 @@ export default function LiveScreen() {
 
   const isLive = config?.ativa || false;
 
+  // Register anonymous viewer when live starts
+  useEffect(() => {
+    if (!isLive) return;
+    const sid = gerarSessionId();
+    setSessionId(sid);
+    registrarViewer(sid, nome || undefined, email || undefined).catch(() => {});
+  }, [isLive]);
+
   // Heartbeat
   useEffect(() => {
-    if (!isRegistered || !sessionId || !isLive) return;
+    if (!sessionId || !isLive) return;
     const interval = setInterval(() => atualizarHeartbeat(sessionId), 30000);
     return () => clearInterval(interval);
-  }, [isRegistered, sessionId, isLive]);
+  }, [sessionId, isLive]);
 
   // Viewer count
   useEffect(() => {
-    if (!isLive || !isRegistered) return;
+    if (!isLive) return;
     const fetchViewers = async () => {
       const count = await contarViewersAtivos();
       setViewers(count);
@@ -110,43 +96,24 @@ export default function LiveScreen() {
     fetchViewers();
     const interval = setInterval(fetchViewers, 15000);
     return () => clearInterval(interval);
-  }, [isLive, isRegistered]);
+  }, [isLive]);
 
-  // Cleanup on app background
+  // Cleanup on app background & re-register on foreground
   useEffect(() => {
-    if (!isRegistered || !sessionId) return;
+    if (!sessionId || !isLive) return;
     const sub = AppState.addEventListener("change", (state) => {
       if (state === "background" || state === "inactive") {
         sairDaLive(sessionId);
+      } else if (state === "active") {
+        registrarViewer(sessionId, nome || undefined, email || undefined).catch(() => {});
+        atualizarHeartbeat(sessionId).catch(() => {});
       }
     });
     return () => {
       sub.remove();
       sairDaLive(sessionId);
     };
-  }, [isRegistered, sessionId]);
-
-  // Auto-registrar com dados salvos quando live ficar ativa
-  useEffect(() => {
-    if (!isLive || isRegistered) return;
-    const savedNome = mmkvStorage.getItem("live_viewer_nome");
-    const savedEmail = mmkvStorage.getItem("live_viewer_email") || "";
-    if (!savedNome) return;
-
-    const autoRegistrar = async () => {
-      setNome(savedNome);
-      setEmail(savedEmail);
-      const newSessionId = gerarSessionId();
-      setSessionId(newSessionId);
-      try {
-        await registrarViewer(newSessionId, savedNome, savedEmail || undefined);
-        setIsRegistered(true);
-      } catch (error) {
-        console.error("Erro ao auto-registrar:", error);
-      }
-    };
-    autoRegistrar();
-  }, [isLive, isRegistered]);
+  }, [sessionId, isLive, nome, email]);
 
   const handleTrocarNome = useCallback(() => {
     Alert.alert("Trocar nome", "Deseja entrar com outro nome?", [
@@ -154,36 +121,22 @@ export default function LiveScreen() {
       {
         text: "Trocar",
         onPress: () => {
-          if (sessionId) sairDaLive(sessionId);
-          setIsRegistered(false);
-          setSessionId("");
+          mmkvStorage.removeItem("live_viewer_nome");
+          mmkvStorage.removeItem("live_viewer_email");
+          setNome("");
+          setEmail("");
         },
       },
     ]);
-  }, [sessionId]);
+  }, []);
 
-  const handleRegistrar = useCallback(async () => {
-    const erro = validarNome(nome);
-    if (erro) {
-      Alert.alert("Nome inválido", erro);
-      return;
+  const handleNomeSet = useCallback((newNome: string) => {
+    setNome(newNome);
+    mmkvStorage.setItem("live_viewer_nome", newNome);
+    if (sessionId) {
+      registrarViewer(sessionId, newNome, email || undefined).catch(() => {});
     }
-    try {
-      const newSessionId = gerarSessionId();
-      setSessionId(newSessionId);
-      await registrarViewer(
-        newSessionId,
-        nome.trim(),
-        email.trim() || undefined
-      );
-      setIsRegistered(true);
-      mmkvStorage.setItem("live_viewer_nome", nome.trim());
-      if (email.trim())
-        mmkvStorage.setItem("live_viewer_email", email.trim());
-    } catch (error) {
-      console.error("Erro ao registrar:", error);
-    }
-  }, [nome, email]);
+  }, [sessionId, email]);
 
   const handleCompartilharWhatsApp = useCallback(() => {
     const msg =
@@ -233,98 +186,8 @@ export default function LiveScreen() {
     );
   }
 
-  // ─── Formulário de registro (live ativa, usuário não registrado) ───
-  if (isLive && !isRegistered) {
-    return (
-      <ScrollView
-        style={{ flex: 1, backgroundColor: c.bg }}
-        contentContainerStyle={{ padding: 16 }}
-      >
-        <View style={[s.card, { backgroundColor: c.cardBg, borderColor: c.cardBorder }]}>
-          <View style={{ padding: 16, paddingTop: 24, alignItems: "center" }}>
-            {/* User icon */}
-            <View style={[s.iconCircle, { backgroundColor: c.primaryBg }]}>
-              <User size={32} color={c.primary} />
-            </View>
-
-            <Text style={[s.text3xl, s.bold, { color: c.foreground, marginBottom: 8 }]}>
-              Bem-vindo(a) a Live!
-            </Text>
-            <Text style={[s.textBase, { color: c.muted, textAlign: "center", marginBottom: 24 }]}>
-              Para assistir a transmissão, por favor informe seus dados
-            </Text>
-
-            {/* Nome */}
-            <View style={{ width: "100%", marginBottom: 12 }}>
-              <Text style={[s.textBase, s.medium, { color: c.foreground, marginBottom: 4 }]}>
-                Nome *
-              </Text>
-              <TextInput
-                style={[s.input, { borderColor: c.border, color: c.foreground, backgroundColor: c.bg }]}
-                placeholder="Seu nome"
-                placeholderTextColor={c.muted}
-                value={nome}
-                onChangeText={setNome}
-                autoFocus
-              />
-            </View>
-
-            {/* E-mail */}
-            <View style={{ width: "100%", marginBottom: 4 }}>
-              <Text style={[s.textBase, s.medium, { color: c.foreground, marginBottom: 4 }]}>
-                E-mail (opcional)
-              </Text>
-              <TextInput
-                style={[s.input, { borderColor: c.border, color: c.foreground, backgroundColor: c.bg }]}
-                placeholder="seu@email.com"
-                placeholderTextColor={c.muted}
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-              />
-              <Text style={[s.textSm, { color: c.muted, marginTop: 4 }]}>
-                Usado apenas para notificações futuras
-              </Text>
-            </View>
-
-            {/* Botão */}
-            <View style={{ width: "100%", marginTop: 16 }}>
-              <Button
-                title="Assistir Live"
-                icon={<Radio size={18} color="#ffffff" />}
-                onPress={handleRegistrar}
-                className="w-full"
-              />
-            </View>
-
-            {/* Live indicator */}
-            <View style={[s.liveIndicator, { backgroundColor: c.primaryBg5 }]}>
-              <Badge
-                label="AO VIVO"
-                variant="destructive"
-                icon={<Radio size={12} color="#ffffff" />}
-                style={
-                  config?.cor_badge
-                    ? { backgroundColor: config.cor_badge }
-                    : undefined
-                }
-              />
-              <Text
-                style={[s.textBase, s.medium, { color: c.foreground, flex: 1 }]}
-                numberOfLines={1}
-              >
-                {config?.titulo || "Transmissão ao Vivo"}
-              </Text>
-            </View>
-          </View>
-        </View>
-      </ScrollView>
-    );
-  }
-
-  // ─── Live ativa + registrado ───
-  if (isLive && isRegistered) {
+  // ─── Live ativa ───
+  if (isLive) {
     return (
       <View style={{ flex: 1, backgroundColor: c.bg }}>
         {/* Player Card - fixo no topo */}
@@ -347,11 +210,13 @@ export default function LiveScreen() {
                   icon={<Users size={12} color={c.muted} />}
                 />
               )}
-              <Pressable onPress={handleTrocarNome} style={{ flexDirection: "row", alignItems: "center", gap: 4, borderWidth: 1, borderColor: c.border, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 }}>
-                <User size={12} color={c.muted} />
-                <Text style={{ fontSize: 12, color: c.muted, maxWidth: 100 }} numberOfLines={1}>{nome}</Text>
-                <LogOut size={11} color={c.muted} style={{ opacity: 0.5 }} />
-              </Pressable>
+              {nome ? (
+                <Pressable onPress={handleTrocarNome} style={{ flexDirection: "row", alignItems: "center", gap: 4, borderWidth: 1, borderColor: c.border, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 }}>
+                  <User size={12} color={c.muted} />
+                  <Text style={{ fontSize: 12, color: c.muted, maxWidth: 100 }} numberOfLines={1}>{nome}</Text>
+                  <LogOut size={11} color={c.muted} style={{ opacity: 0.5 }} />
+                </Pressable>
+              ) : null}
               <Badge
                 label="AO VIVO"
                 variant="destructive"
@@ -397,6 +262,7 @@ export default function LiveScreen() {
             nome={nome}
             email={email}
             isLive={isLive}
+            onNomeSet={handleNomeSet}
           />
         </View>
       </View>

@@ -8,20 +8,42 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  AppState,
   StyleSheet,
 } from "react-native";
-import { MessageCircle, Send, Users } from "lucide-react-native";
+import { MessageCircle, Send, User, Users } from "lucide-react-native";
 import { Badge } from "@/components/ui/Badge";
 import { chatClient } from "@/services/chatService";
 import { useTheme } from "@/hooks/useTheme";
 import { censurarTexto, contemProfanidade } from "@/lib/profanityFilter";
 import type { ChatMensagem } from "@/types";
 
+const PALAVRAS_PROIBIDAS = [
+  "puta", "puto", "viado", "buceta", "pau", "piroca", "cu", "merda",
+  "filho da puta", "fdp", "vadia", "vagabunda", "vagabundo", "corno",
+  "caralho", "porra", "foda", "foder", "desgraça", "lixo",
+  "nazi", "nazista", "racista", "negro", "nigga",
+  "shit", "fuck", "ass", "bitch", "damn",
+];
+
+function validarNome(nome: string): string | null {
+  const n = nome.trim();
+  if (n.length < 2) return "Nome deve ter pelo menos 2 caracteres.";
+  if (n.length > 50) return "Nome muito longo.";
+  if (/^[\d\s\W]+$/.test(n)) return "Nome deve conter letras.";
+  const lower = n.toLowerCase();
+  for (const palavra of PALAVRAS_PROIBIDAS) {
+    if (lower.includes(palavra)) return "Nome não permitido.";
+  }
+  return null;
+}
+
 interface LiveChatProps {
   sessionId: string;
   nome: string;
   email?: string;
   isLive: boolean;
+  onNomeSet?: (nome: string) => void;
 }
 
 function LiveChatInner({
@@ -29,6 +51,7 @@ function LiveChatInner({
   nome,
   email,
   isLive,
+  onNomeSet,
 }: LiveChatProps) {
   const { isDark } = useTheme();
 
@@ -50,6 +73,8 @@ function LiveChatInner({
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [digitando, setDigitando] = useState<string[]>([]);
+  const [nomeInput, setNomeInput] = useState("");
+  const [nomeError, setNomeError] = useState("");
   const flatListRef = useRef<FlatList>(null);
   const digitandoTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -72,7 +97,7 @@ function LiveChatInner({
   }, [mensagens, scrollToBottom]);
 
   useEffect(() => {
-    if (!isLive || !sessionId || !nome) return;
+    if (!isLive || !sessionId) return;
 
     setIsConnecting(true);
 
@@ -127,8 +152,17 @@ function LiveChatInner({
       setIsConnecting(false);
     }, 2000);
 
+    // Reconnect when app returns from background
+    const appStateSub = AppState.addEventListener("change", (nextState) => {
+      if (nextState === "active" && !chatClient.isConnected()) {
+        setIsConnecting(true);
+        chatClient.connect(sessionId, nome, email);
+      }
+    });
+
     return () => {
       clearTimeout(checkConnection);
+      appStateSub.remove();
       if (digitandoTimeoutRef.current) {
         clearTimeout(digitandoTimeoutRef.current);
       }
@@ -144,6 +178,16 @@ function LiveChatInner({
       chatClient.disconnect();
     };
   }, [isLive, sessionId, nome, email, filtrarMensagensDeHoje]);
+
+  const handleNomeSubmit = useCallback(() => {
+    const erro = validarNome(nomeInput);
+    if (erro) {
+      setNomeError(erro);
+      return;
+    }
+    setNomeError("");
+    onNomeSet?.(nomeInput.trim());
+  }, [nomeInput, onNomeSet]);
 
   const handleEnviar = () => {
     const texto = novaMensagem.trim();
@@ -276,29 +320,67 @@ function LiveChatInner({
         />
 
         {/* Input */}
-        <View style={[st.inputRow, { borderTopColor: cl.border }]}>
-          <TextInput
-            style={[st.input, { backgroundColor: cl.bg, borderColor: cl.border, color: cl.foreground }]}
-            placeholder="Digite sua mensagem..."
-            placeholderTextColor={cl.muted}
-            value={novaMensagem}
-            onChangeText={handleInputChange}
-            maxLength={500}
-            editable={isConnected}
-            onSubmitEditing={handleEnviar}
-            returnKeyType="send"
-          />
-          <Pressable
-            onPress={handleEnviar}
-            disabled={!canSend}
-            style={[
-              st.sendButton,
-              { backgroundColor: canSend ? cl.primary : cl.mutedBg, opacity: canSend ? 1 : 0.5 },
-            ]}
-          >
-            <Send size={18} color={canSend ? "#ffffff" : cl.muted} />
-          </Pressable>
-        </View>
+        {nome ? (
+          <View style={[st.inputRow, { borderTopColor: cl.border }]}>
+            <TextInput
+              style={[st.input, { backgroundColor: cl.bg, borderColor: cl.border, color: cl.foreground }]}
+              placeholder="Digite sua mensagem..."
+              placeholderTextColor={cl.muted}
+              value={novaMensagem}
+              onChangeText={handleInputChange}
+              maxLength={500}
+              editable={isConnected}
+              onSubmitEditing={handleEnviar}
+              returnKeyType="send"
+            />
+            <Pressable
+              onPress={handleEnviar}
+              disabled={!canSend}
+              style={[
+                st.sendButton,
+                { backgroundColor: canSend ? cl.primary : cl.mutedBg, opacity: canSend ? 1 : 0.5 },
+              ]}
+            >
+              <Send size={18} color={canSend ? "#ffffff" : cl.muted} />
+            </Pressable>
+          </View>
+        ) : (
+          <View style={{ borderTopWidth: 1, borderTopColor: cl.border }}>
+            <View style={{ backgroundColor: cl.mutedBg, paddingHorizontal: 12, paddingVertical: 10, flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <User size={14} color={cl.primary} />
+              <Text style={{ fontSize: 13, color: cl.foreground, flex: 1 }}>
+                Para enviar mensagens, informe seu nome:
+              </Text>
+            </View>
+            {nomeError ? (
+              <Text style={{ fontSize: 12, color: cl.destructive, paddingHorizontal: 12, paddingTop: 6 }}>
+                {nomeError}
+              </Text>
+            ) : null}
+            <View style={[st.inputRow, { borderTopWidth: 0 }]}>
+              <TextInput
+                style={[st.input, { backgroundColor: cl.bg, borderColor: cl.border, color: cl.foreground }]}
+                placeholder="Digite seu nome..."
+                placeholderTextColor={cl.muted}
+                value={nomeInput}
+                onChangeText={(t) => { setNomeInput(t); setNomeError(""); }}
+                maxLength={50}
+                onSubmitEditing={handleNomeSubmit}
+                returnKeyType="done"
+              />
+              <Pressable
+                onPress={handleNomeSubmit}
+                disabled={!nomeInput.trim()}
+                style={[
+                  st.sendButton,
+                  { backgroundColor: nomeInput.trim() ? cl.primary : cl.mutedBg, opacity: nomeInput.trim() ? 1 : 0.5 },
+                ]}
+              >
+                <Send size={18} color={nomeInput.trim() ? "#ffffff" : cl.muted} />
+              </Pressable>
+            </View>
+          </View>
+        )}
       </KeyboardAvoidingView>
     </View>
   );

@@ -14,6 +14,13 @@ class ChatClient {
   connect(sessionId: string, nome: string, email?: string): void {
     if (this.socket?.connected) return;
 
+    // Clean up old disconnected socket before creating a new one
+    if (this.socket) {
+      this.socket.removeAllListeners();
+      this.socket.disconnect();
+      this.socket = null;
+    }
+
     this.sessionId = sessionId;
     this.nome = nome;
     this.email = email || '';
@@ -29,6 +36,7 @@ class ChatClient {
         nome: this.nome,
         email: this.email,
       });
+      this.emit('conectado', {});
     });
 
     this.socket.on('disconnect', () => {

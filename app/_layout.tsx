@@ -80,9 +80,11 @@ function AppContent() {
         <Stack.Screen name="+not-found" />
       </Stack>
 
-      <View pointerEvents="box-none" style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, zIndex: 50 }}>
-        <LiveFAB hidden={drawerOpen || pathname === "/live"} />
-      </View>
+      {pathname !== "/live" && (
+        <View pointerEvents="box-none" style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, zIndex: 50 }}>
+          <LiveFAB hidden={drawerOpen} />
+        </View>
+      )}
       <DrawerMenu visible={drawerOpen} onClose={closeDrawer} />
       <Toast />
     </View>
