@@ -20,8 +20,11 @@ import {
   getEventosDestaque,
   getEventosDoMes,
 } from "@/services/eventoService";
+import { getProgramacaoAtiva } from "@/services/programacaoService";
+import { getDiasSemCultoDoMes } from "@/services/diasSemCultoService";
 import { AppFooter } from "@/components/AppFooter";
 import { formatarPeriodo, formatarHorario } from "@/lib/utils";
+import type { Programacao } from "@/types";
 import { useThemeForScreen } from "@/hooks/useThemeForScreen";
 import { useScreenReady } from "@/hooks/useScreenReady";
 import { useImagePrefetch } from "@/hooks/useImagePrefetch";
@@ -396,6 +399,18 @@ export default function EventosScreen() {
     staleTime: 1000 * 60 * 30,
   });
 
+  const { data: programacao } = useQuery({
+    queryKey: ["programacao-ativa"],
+    queryFn: getProgramacaoAtiva,
+    staleTime: 1000 * 60 * 60,
+  });
+
+  const { data: diasSemCulto } = useQuery({
+    queryKey: ["dias-sem-culto", mesAtual.getFullYear(), mesAtual.getMonth()],
+    queryFn: () => getDiasSemCultoDoMes(mesAtual.getFullYear(), mesAtual.getMonth()),
+    staleTime: 1000 * 60 * 30,
+  });
+
   const isLoading = loadingFuturos || loadingDestaque;
 
   const eventImageUrls = useMemo(
@@ -424,12 +439,11 @@ export default function EventosScreen() {
   }, [mesAtual]);
 
   const getEventosDoDia = useCallback(
-    (dia: number) => {
-      if (!eventosDoMes) return [];
+    (dia: number): Evento[] => {
       const anoAlvo = mesAtual.getFullYear();
       const mesAlvo = mesAtual.getMonth();
 
-      return eventosDoMes.filter((evento) => {
+      const eventosReais = (eventosDoMes || []).filter((evento) => {
         const inicio = extrairDataISO(evento.data_inicio);
         const fim = evento.data_fim ? extrairDataISO(evento.data_fim) : inicio;
 
@@ -439,8 +453,41 @@ export default function EventosScreen() {
 
         return dataAlvo >= dataInicio && dataAlvo <= dataFim;
       });
+
+      // Se tem eventos especiais, mostra só eles
+      if (eventosReais.length > 0) {
+        return eventosReais;
+      }
+
+      // Verificar se é um dia marcado como "sem culto"
+      const dataStr = `${anoAlvo}-${String(mesAlvo + 1).padStart(2, "0")}-${String(dia).padStart(2, "0")}`;
+      if (diasSemCulto?.some((d) => d.data === dataStr)) {
+        return [];
+      }
+
+      // Preencher com cultos regulares da programação
+      if (!programacao) return [];
+      const dataAlvo = new Date(anoAlvo, mesAlvo, dia);
+      const diaSemana = dataAlvo.getDay();
+      const dataBase = dataStr;
+
+      return programacao
+        .filter((p) => p.dia_semana === diaSemana)
+        .map((p): Evento => ({
+          id: `prog-${p.id}`,
+          titulo: p.titulo,
+          descricao: p.descricao,
+          data_inicio: `${dataBase}T01:23:00`,
+          data_fim: `${dataBase}T01:23:00`,
+          local: p.local,
+          tipo: p.horario,
+          destaque: false,
+          imagem_url: null,
+          cor: "#8b5cf6",
+          created_at: p.created_at,
+        }));
     },
-    [eventosDoMes, mesAtual]
+    [eventosDoMes, mesAtual, programacao, diasSemCulto]
   );
 
   const mudarMes = useCallback((direcao: number) => {
@@ -885,7 +932,7 @@ export default function EventosScreen() {
                       <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 12 }}>
                         <Clock size={14} color={c.modalSecondary} />
                         <Text style={{ fontSize: 13, color: c.modalSecondary }}>
-                          {formatarHorario(evento.data_inicio, evento.data_fim)}
+                          {evento.id.startsWith("prog-") ? evento.tipo : formatarHorario(evento.data_inicio, evento.data_fim)}
                         </Text>
                       </View>
                       {evento.local && (
