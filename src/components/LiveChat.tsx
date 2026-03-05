@@ -44,6 +44,7 @@ interface LiveChatProps {
   email?: string;
   isLive: boolean;
   onNomeSet?: (nome: string) => void;
+  viewerCount?: number;
 }
 
 function LiveChatInner({
@@ -52,6 +53,7 @@ function LiveChatInner({
   email,
   isLive,
   onNomeSet,
+  viewerCount,
 }: LiveChatProps) {
   const { isDark } = useTheme();
 
@@ -69,14 +71,11 @@ function LiveChatInner({
 
   const [mensagens, setMensagens] = useState<ChatMensagem[]>([]);
   const [novaMensagem, setNovaMensagem] = useState("");
-  const [usersOnline, setUsersOnline] = useState(0);
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
-  const [digitando, setDigitando] = useState<string[]>([]);
   const [nomeInput, setNomeInput] = useState("");
   const [nomeError, setNomeError] = useState("");
   const flatListRef = useRef<FlatList>(null);
-  const digitandoTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const filtrarMensagensDeHoje = useCallback((msgs: ChatMensagem[]) => {
     const hoje = new Date();
@@ -107,19 +106,6 @@ function LiveChatInner({
     const handleMensagensAnteriores = (msgs: ChatMensagem[]) => {
       setMensagens(filtrarMensagensDeHoje(msgs));
     };
-    const handleUsersOnline = (count: number) => {
-      setUsersOnline(count);
-    };
-    const handleUsuarioDigitando = (data: { nome: string }) => {
-      if (data.nome !== nome) {
-        setDigitando((prev) =>
-          prev.includes(data.nome) ? prev : [...prev, data.nome]
-        );
-      }
-    };
-    const handleUsuarioParouDigitar = (data: { nome: string }) => {
-      setDigitando((prev) => prev.filter((n) => n !== data.nome));
-    };
     const handleMensagemDeletada = (data: { mensagemId: string }) => {
       setMensagens((prev) => prev.filter((m) => m.id !== data.mensagemId));
     };
@@ -138,9 +124,6 @@ function LiveChatInner({
     chatClient.on("conectado", handleConectado);
     chatClient.on("mensagem", handleMensagem);
     chatClient.on("mensagens_anteriores", handleMensagensAnteriores);
-    chatClient.on("users_online", handleUsersOnline);
-    chatClient.on("usuario_digitando", handleUsuarioDigitando);
-    chatClient.on("usuario_parou_digitar", handleUsuarioParouDigitar);
     chatClient.on("mensagem_deletada", handleMensagemDeletada);
     chatClient.on("chat_limpo", handleChatLimpo);
     chatClient.on("desconectado", handleDesconectado);
@@ -163,15 +146,9 @@ function LiveChatInner({
     return () => {
       clearTimeout(checkConnection);
       appStateSub.remove();
-      if (digitandoTimeoutRef.current) {
-        clearTimeout(digitandoTimeoutRef.current);
-      }
       chatClient.off("conectado", handleConectado);
       chatClient.off("mensagem", handleMensagem);
       chatClient.off("mensagens_anteriores", handleMensagensAnteriores);
-      chatClient.off("users_online", handleUsersOnline);
-      chatClient.off("usuario_digitando", handleUsuarioDigitando);
-      chatClient.off("usuario_parou_digitar", handleUsuarioParouDigitar);
       chatClient.off("mensagem_deletada", handleMensagemDeletada);
       chatClient.off("chat_limpo", handleChatLimpo);
       chatClient.off("desconectado", handleDesconectado);
@@ -199,18 +176,10 @@ function LiveChatInner({
       chatClient.enviarMensagem(texto);
     }
     setNovaMensagem("");
-    chatClient.parouDigitar();
   };
 
   const handleInputChange = (text: string) => {
     setNovaMensagem(text);
-    chatClient.digitando();
-    if (digitandoTimeoutRef.current) {
-      clearTimeout(digitandoTimeoutRef.current);
-    }
-    digitandoTimeoutRef.current = setTimeout(() => {
-      chatClient.parouDigitar();
-    }, 2000);
   };
 
   const formatarHora = (dateStr: string) => {
@@ -264,11 +233,13 @@ function LiveChatInner({
             Chat ao Vivo
           </Text>
         </View>
-        <Badge
-          label={`${usersOnline}`}
-          variant="secondary"
-          icon={<Users size={12} color={cl.muted} />}
-        />
+        {viewerCount !== undefined && (
+          <Badge
+            label={`${viewerCount}`}
+            variant="secondary"
+            icon={<Users size={12} color={cl.muted} />}
+          />
+        )}
       </View>
 
       {/* Connection status */}
@@ -304,17 +275,6 @@ function LiveChatInner({
                 Seja o primeiro a enviar uma mensagem!
               </Text>
             </View>
-          }
-          ListFooterComponent={
-            digitando.length > 0 ? (
-              <Text style={{ fontSize: 12, color: cl.muted, fontStyle: "italic", marginTop: 4 }}>
-                {digitando.length === 1
-                  ? `${digitando[0]} está digitando...`
-                  : `${digitando.slice(0, 2).join(", ")}${
-                      digitando.length > 2 ? ` e mais ${digitando.length - 2}` : ""
-                    } estão digitando...`}
-              </Text>
-            ) : null
           }
           onContentSizeChange={scrollToBottom}
         />

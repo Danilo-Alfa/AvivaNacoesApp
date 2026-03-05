@@ -263,6 +263,7 @@ export default function LiveScreen() {
             email={email}
             isLive={isLive}
             onNomeSet={handleNomeSet}
+            viewerCount={viewers}
           />
         </View>
       </View>
