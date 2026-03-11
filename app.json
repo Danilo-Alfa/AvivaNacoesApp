@@ -18,8 +18,10 @@
       "bundleIdentifier": "com.avivanacoes.app",
       "infoPlist": {
         "UIBackgroundModes": [
+          "remote-notification",
           "remote-notification"
-        ]
+        ],
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {

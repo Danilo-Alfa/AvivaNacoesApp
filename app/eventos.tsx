@@ -677,6 +677,8 @@ export default function EventosScreen() {
                         const eventosNoDia = getEventosDoDia(dia);
                         const temEvento = eventosNoDia.length > 0;
                         const eHoje = isHoje(dia);
+                        const eventosVisiveis = eventosNoDia.slice(0, 2);
+                        const eventosExtras = eventosNoDia.length - 2;
 
                         return (
                           <TouchableOpacity
@@ -694,71 +696,73 @@ export default function EventosScreen() {
                             activeOpacity={temEvento ? 0.6 : 1}
                             onPress={() => temEvento && abrirModal(dia)}
                           >
-                            <View style={{ alignItems: "flex-start" }}>
+                            {/* Número do dia e badge de extras */}
+                            <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" }}>
                               {eHoje ? (
                                 <View
                                   style={{
-                                    width: 22,
-                                    height: 22,
-                                    borderRadius: 11,
+                                    width: 18,
+                                    height: 18,
+                                    borderRadius: 9,
                                     backgroundColor: "#6366f1",
                                     alignItems: "center",
                                     justifyContent: "center",
                                   }}
                                 >
-                                  <Text style={{ color: "#ffffff", fontSize: 11, fontWeight: "700" }}>
+                                  <Text style={{ color: "#ffffff", fontSize: 9, fontWeight: "700" }}>
                                     {dia}
                                   </Text>
                                 </View>
                               ) : (
                                 <Text
                                   style={{
-                                    fontSize: 11,
+                                    fontSize: 9,
                                     fontWeight: "500",
                                     color: c.calDayText,
-                                    paddingLeft: 2,
+                                    paddingLeft: 1,
                                     paddingTop: 1,
                                   }}
                                 >
                                   {dia}
                                 </Text>
                               )}
+                              {eventosExtras > 0 && (
+                                <Text style={{ fontSize: 7, fontWeight: "600", color: "#6366f1" }}>
+                                  +{eventosExtras}
+                                </Text>
+                              )}
                             </View>
 
+                            {/* Títulos dos eventos */}
                             {temEvento && (
-                              <View
-                                style={{
-                                  flex: 1,
-                                  justifyContent: "flex-end",
-                                  alignItems: "center",
-                                  paddingBottom: 3,
-                                }}
-                              >
-                                <View style={{ flexDirection: "row", alignItems: "center", gap: 2 }}>
-                                  {eventosNoDia.slice(0, 3).map((evento, i) => (
+                              <View style={{ flex: 1, marginTop: 1, overflow: "hidden" }}>
+                                {eventosVisiveis.map((evento) => {
+                                  const cor = evento.cor || "#6366f1";
+                                  return (
                                     <View
-                                      key={i}
+                                      key={evento.id}
                                       style={{
-                                        width: 6,
-                                        height: 6,
-                                        borderRadius: 3,
-                                        backgroundColor: evento.cor || "#6366f1",
-                                      }}
-                                    />
-                                  ))}
-                                  {eventosNoDia.length > 3 && (
-                                    <Text
-                                      style={{
-                                        fontSize: 8,
-                                        fontWeight: "600",
-                                        color: "#6366f1",
-                                        marginLeft: 1,
+                                        borderLeftWidth: 2,
+                                        borderLeftColor: cor,
+                                        paddingLeft: 2,
+                                        marginBottom: 1,
+                                        borderRadius: 2,
+                                        backgroundColor: cor + "15",
                                       }}
                                     >
-                                      +{eventosNoDia.length - 3}
-                                    </Text>
-                                  )}
-                                </View>
+                                      <Text
+                                        numberOfLines={1}
+                                        style={{
+                                          fontSize: 7,
+                                          fontWeight: "500",
+                                          color: c.calDayText,
+                                        }}
+                                      >
+                                        {evento.titulo}
+                                      </Text>
+                                    </View>
+                                  );
+                                })}
                               </View>
                             )}
                           </TouchableOpacity>
