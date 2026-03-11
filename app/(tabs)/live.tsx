@@ -11,8 +11,9 @@ import {
   Alert,
   Pressable,
 } from "react-native";
+import { Video as ExpoVideo, ResizeMode } from "expo-av";
 import { useQuery } from "@tanstack/react-query";
-import { LogOut, Radio, User, Users } from "lucide-react-native";
+import { LogOut, Play, Radio, User, Users, Video } from "lucide-react-native";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import LiveChat from "@/components/LiveChat";
@@ -29,6 +30,28 @@ import { mmkvStorage } from "@/lib/storage";
 import { useThemeForScreen } from "@/hooks/useThemeForScreen";
 import { useScreenReady } from "@/hooks/useScreenReady";
 import type { LiveConfig } from "@/types";
+
+interface Recording {
+  name: string;
+  mtime: string;
+  size: number;
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(0)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+}
+
+function formatRecordingDate(filename: string): string {
+  const match = filename.match(/(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})/);
+  if (!match) return filename;
+  const [, year, month, day, hour, min] = match;
+  return `${day}/${month}/${year} às ${hour}:${min}`;
+}
+
+const STREAM_URL = process.env.EXPO_PUBLIC_STREAM_URL || "";
+const SERVER_BASE_URL = STREAM_URL.replace(/\/live\/.*$/, "");
 
 export default function LiveScreen() {
   const { isDark } = useThemeForScreen();
@@ -58,6 +81,9 @@ export default function LiveScreen() {
   );
   const [sessionId, setSessionId] = useState("");
   const [viewers, setViewers] = useState(0);
+  const [recordings, setRecordings] = useState<Recording[]>([]);
+  const [loadingRecordings, setLoadingRecordings] = useState(false);
+  const [playingVideo, setPlayingVideo] = useState<string | null>(null);
 
   const {
     data: config,
@@ -70,6 +96,22 @@ export default function LiveScreen() {
   });
 
   const isLive = config?.ativa || false;
+
+  // Carregar gravações quando offline
+  useEffect(() => {
+    if (isLive || !SERVER_BASE_URL) return;
+    setLoadingRecordings(true);
+    fetch(`${SERVER_BASE_URL}/recordings/`)
+      .then((res) => res.json())
+      .then((files: { name: string; mtime: string; size: number }[]) => {
+        const mp4s = files
+          .filter((f) => f.name.endsWith(".mp4"))
+          .sort((a, b) => new Date(b.mtime).getTime() - new Date(a.mtime).getTime());
+        setRecordings(mp4s);
+      })
+      .catch(() => setRecordings([]))
+      .finally(() => setLoadingRecordings(false));
+  }, [isLive]);
 
   // Register anonymous viewer when live starts
   useEffect(() => {
@@ -346,6 +388,85 @@ export default function LiveScreen() {
           </View>
         </View>
       </View>
+
+      {/* Gravações anteriores */}
+      {loadingRecordings ? (
+        <View style={{ alignItems: "center", paddingVertical: 24 }}>
+          <ActivityIndicator size="small" color={c.muted} />
+        </View>
+      ) : recordings.length > 0 && (
+        <View style={[s.card, { backgroundColor: c.cardBg, borderColor: c.cardBorder, marginTop: 16 }]}>
+          <View style={{ padding: 16 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 16 }}>
+              <Video size={20} color={c.primary} />
+              <Text style={[s.textXl, s.bold, { color: c.foreground }]}>
+                Transmissões Anteriores
+              </Text>
+            </View>
+
+            {/* Player da gravação selecionada */}
+            {playingVideo && (
+              <View style={{ marginBottom: 16 }}>
+                <View style={{ aspectRatio: 16 / 9, backgroundColor: "#000", borderRadius: 8, overflow: "hidden" }}>
+                  <ExpoVideo
+                    source={{ uri: `${SERVER_BASE_URL}/recordings/${playingVideo}` }}
+                    style={{ flex: 1 }}
+                    useNativeControls
+                    resizeMode={ResizeMode.CONTAIN}
+                    shouldPlay
+                  />
+                </View>
+                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 8 }}>
+                  <Text style={[s.textSm, { color: c.muted }]}>
+                    {formatRecordingDate(playingVideo)}
+                  </Text>
+                  <Pressable onPress={() => setPlayingVideo(null)}>
+                    <Text style={[s.textSm, { color: c.primary }]}>Fechar player</Text>
+                  </Pressable>
+                </View>
+              </View>
+            )}
+
+            {/* Lista de gravações */}
+            {recordings.map((rec) => (
+              <Pressable
+                key={rec.name}
+                onPress={() => setPlayingVideo(rec.name)}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 12,
+                  padding: 12,
+                  borderRadius: 8,
+                  borderWidth: 1,
+                  borderColor: playingVideo === rec.name ? c.primary : c.border,
+                  backgroundColor: playingVideo === rec.name ? c.primaryBg5 : "transparent",
+                  marginBottom: 8,
+                }}
+              >
+                <View style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 20,
+                  backgroundColor: c.primaryBg,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}>
+                  <Play size={16} color={c.primary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[s.textBase, s.medium, { color: c.foreground }]}>
+                    {formatRecordingDate(rec.name)}
+                  </Text>
+                  <Text style={[s.textXs, { color: c.muted }]}>
+                    {formatFileSize(rec.size)}
+                  </Text>
+                </View>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+      )}
 
       {/* Compartilhe */}
       <View style={[s.card, { backgroundColor: c.cardBg, borderColor: c.cardBorder, marginTop: 16 }]}>
