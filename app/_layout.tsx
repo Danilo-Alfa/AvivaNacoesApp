@@ -77,6 +77,7 @@ function AppContent() {
         <Stack.Screen name="jornal" />
         <Stack.Screen name="redes-sociais" />
         <Stack.Screen name="fale-conosco" />
+        <Stack.Screen name="escola-aviva" />
         <Stack.Screen name="+not-found" />
       </Stack>
 

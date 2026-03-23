@@ -30,6 +30,7 @@ import {
   MessageSquare,
   Moon,
   Sun,
+  GraduationCap,
 } from "lucide-react-native";
 import { useTheme } from "@/hooks/useTheme";
 import { getLiveStatus } from "@/services/liveService";
@@ -59,6 +60,12 @@ const SECTIONS = [
       { icon: Images, title: "Fotos", route: "/galerias", color: "#f59e0b" },
       { icon: Calendar, title: "Eventos", route: "/eventos", color: "#eab308", hasNewBadge: true },
       { icon: Video, title: "Vídeos", route: "/videos", color: "#84cc16" },
+    ],
+  },
+  {
+    title: "Formação",
+    items: [
+      { icon: GraduationCap, title: "Escola Aviva", route: "/escola-aviva", color: "#7c3aed" },
     ],
   },
   {

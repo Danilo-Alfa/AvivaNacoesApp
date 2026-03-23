@@ -10,11 +10,15 @@ import {
   GestureResponderEvent,
 } from "react-native";
 import { Audio, AVPlaybackStatus } from "expo-av";
-import { Radio, Play, Pause, X, Volume2, VolumeX } from "lucide-react-native";
+import { Radio, Play, Pause, X, Volume2, VolumeX, MessageCircle } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import * as Linking from "expo-linking";
 import { useTheme } from "@/hooks/useTheme";
 
 const STREAM_URL = "https://cast4.hoost.com.br:8207/stream";
+const WHATSAPP_NUMBER = "5511930008592";
+const WHATSAPP_URL = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent("Olá! Estou ouvindo a Rádio Aviva! 📻")}`;
+
 
 export function LiveFAB({ hidden = false }: { hidden?: boolean }) {
   const { isDark } = useTheme();
@@ -192,130 +196,142 @@ export function LiveFAB({ hidden = false }: { hidden?: boolean }) {
           onPress={() => setIsMinimized(true)}
         />
 
-        <View
-          style={[
-            styles.card,
-            {
-              backgroundColor: cardBg,
-              borderColor: border,
-              marginBottom: fabBottom,
-            },
-          ]}
-        >
-          <View style={[styles.accent, { backgroundColor: primary }]} />
+        <View style={{ marginHorizontal: 16, marginBottom: fabBottom }}>
+          <View
+            style={[
+              styles.card,
+              {
+                backgroundColor: cardBg,
+                borderColor: border,
+              },
+            ]}
+          >
+            <View style={[styles.accent, { backgroundColor: primary }]} />
 
-          <View style={styles.body}>
-            {/* Header */}
-            <View style={styles.row}>
-              <View style={styles.headerLeft}>
-                <View style={[styles.iconBox, { backgroundColor: primary }]}>
-                  <Radio size={20} color="#fff" />
-                  {isPlaying && (
-                    <View style={styles.liveDotSm}>
-                      <Animated.View
-                        style={[styles.dotInnerSm, { opacity: pulseAnim }]}
-                      />
-                    </View>
-                  )}
-                </View>
-                <View>
-                  <Text style={[styles.title, { color: fg }]}>
-                    Rádio Aviva
-                  </Text>
-                  {isPlaying ? (
-                    <View style={styles.liveRow}>
-                      <Animated.View
-                        style={[styles.liveCircle, { opacity: pulseAnim }]}
-                      />
-                      <Text style={styles.liveLabel}>AO VIVO</Text>
-                    </View>
-                  ) : (
-                    <Text style={[styles.sub, { color: muted_ }]}>
-                      Toque para ouvir
+            <View style={styles.body}>
+              {/* Header */}
+              <View style={styles.row}>
+                <View style={styles.headerLeft}>
+                  <View style={[styles.iconBox, { backgroundColor: primary }]}>
+                    <Radio size={20} color="#fff" />
+                    {isPlaying && (
+                      <View style={styles.liveDotSm}>
+                        <Animated.View
+                          style={[styles.dotInnerSm, { opacity: pulseAnim }]}
+                        />
+                      </View>
+                    )}
+                  </View>
+                  <View>
+                    <Text style={[styles.title, { color: fg }]}>
+                      Rádio Aviva
                     </Text>
-                  )}
+                    {isPlaying ? (
+                      <View style={styles.liveRow}>
+                        <Animated.View
+                          style={[styles.liveCircle, { opacity: pulseAnim }]}
+                        />
+                        <Text style={styles.liveLabel}>AO VIVO</Text>
+                      </View>
+                    ) : (
+                      <Text style={[styles.sub, { color: muted_ }]}>
+                        Toque para ouvir
+                      </Text>
+                    )}
+                  </View>
                 </View>
+                <Pressable
+                  onPress={() => setIsMinimized(true)}
+                  style={[styles.closeBtn, { backgroundColor: secBg }]}
+                >
+                  <X size={16} color={muted_} />
+                </Pressable>
               </View>
-              <Pressable
-                onPress={() => setIsMinimized(true)}
-                style={[styles.closeBtn, { backgroundColor: secBg }]}
-              >
-                <X size={16} color={muted_} />
-              </Pressable>
-            </View>
 
-            {/* Waves */}
-            {isPlaying && (
-              <View style={styles.waves}>
-                {Array.from({ length: 16 }).map((_, i) => (
-                  <WaveBar key={i} index={i} color={primary} />
-                ))}
-              </View>
-            )}
+              {/* Waves */}
+              {isPlaying && (
+                <View style={styles.waves}>
+                  {Array.from({ length: 16 }).map((_, i) => (
+                    <WaveBar key={i} index={i} color={primary} />
+                  ))}
+                </View>
+              )}
 
-            {/* Controls: Play + Volume */}
-            <View style={styles.controls}>
-              {/* Play / Pause */}
-              <Pressable
-                onPress={togglePlay}
-                disabled={isLoading}
-                style={[
-                  styles.playBtn,
-                  { backgroundColor: primary },
-                  isLoading && { opacity: 0.5 },
-                ]}
-              >
-                {isLoading ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : isPlaying ? (
-                  <Pause size={24} color="#fff" />
-                ) : (
-                  <Play size={24} color="#fff" style={{ marginLeft: 2 }} />
-                )}
-              </Pressable>
-
-              {/* Volume */}
-              <View style={styles.volumeRow}>
-                <Pressable onPress={toggleMute} style={[styles.muteBtn, { backgroundColor: secBg }]}>
-                  {isMuted || volume === 0 ? (
-                    <VolumeX size={18} color={muted_} />
+              {/* Controls: Play + Volume */}
+              <View style={styles.controls}>
+                {/* Play / Pause */}
+                <Pressable
+                  onPress={togglePlay}
+                  disabled={isLoading}
+                  style={[
+                    styles.playBtn,
+                    { backgroundColor: primary },
+                    isLoading && { opacity: 0.5 },
+                  ]}
+                >
+                  {isLoading ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : isPlaying ? (
+                    <Pause size={24} color="#fff" />
                   ) : (
-                    <Volume2 size={18} color={muted_} />
+                    <Play size={24} color="#fff" style={{ marginLeft: 2 }} />
                   )}
                 </Pressable>
 
-                {/* Slider */}
-                <View
-                  style={[styles.sliderTrack, { backgroundColor: sliderBg }]}
-                  onLayout={(e) => {
-                    sliderWidth.current = e.nativeEvent.layout.width;
-                  }}
-                  onStartShouldSetResponder={() => true}
-                  onMoveShouldSetResponder={() => true}
-                  onResponderGrant={handleSliderTouch}
-                  onResponderMove={handleSliderTouch}
-                >
+                {/* Volume */}
+                <View style={styles.volumeRow}>
+                  <Pressable onPress={toggleMute} style={[styles.muteBtn, { backgroundColor: secBg }]}>
+                    {isMuted || volume === 0 ? (
+                      <VolumeX size={18} color={muted_} />
+                    ) : (
+                      <Volume2 size={18} color={muted_} />
+                    )}
+                  </Pressable>
+
+                  {/* Slider */}
                   <View
-                    style={[
-                      styles.sliderFill,
-                      {
-                        backgroundColor: primary,
-                        width: `${displayVol * 100}%`,
-                      },
-                    ]}
-                  />
-                  <View
-                    style={[
-                      styles.sliderThumb,
-                      {
-                        backgroundColor: primary,
-                        left: `${displayVol * 100}%`,
-                      },
-                    ]}
-                  />
+                    style={[styles.sliderTrack, { backgroundColor: sliderBg }]}
+                    onLayout={(e) => {
+                      sliderWidth.current = e.nativeEvent.layout.width;
+                    }}
+                    onStartShouldSetResponder={() => true}
+                    onMoveShouldSetResponder={() => true}
+                    onResponderGrant={handleSliderTouch}
+                    onResponderMove={handleSliderTouch}
+                  >
+                    <View
+                      style={[
+                        styles.sliderFill,
+                        {
+                          backgroundColor: primary,
+                          width: `${displayVol * 100}%`,
+                        },
+                      ]}
+                    />
+                    <View
+                      style={[
+                        styles.sliderThumb,
+                        {
+                          backgroundColor: primary,
+                          left: `${displayVol * 100}%`,
+                        },
+                      ]}
+                    />
+                  </View>
                 </View>
               </View>
             </View>
+          </View>
+
+          {/* WhatsApp Button */}
+          <View style={styles.whatsappBtn}>
+            <Pressable
+              onPress={() => Linking.openURL(WHATSAPP_URL)}
+              style={styles.whatsappInner}
+            >
+              <MessageCircle size={18} color="#ffffff" />
+              <Text style={styles.whatsappText}>Enviar mensagem para a rádio</Text>
+            </Pressable>
           </View>
         </View>
       </View>
@@ -397,7 +413,6 @@ const styles = StyleSheet.create({
   },
 
   card: {
-    marginHorizontal: 16,
     borderRadius: 16,
     borderWidth: 1,
     overflow: "hidden",
@@ -528,5 +543,29 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 3,
+  },
+
+  whatsappBtn: {
+    backgroundColor: "#25D366",
+    borderRadius: 12,
+    marginTop: 10,
+    elevation: 6,
+    shadowColor: "#25D366",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  whatsappInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+  },
+  whatsappText: {
+    color: "#ffffff",
+    fontSize: 15,
+    fontWeight: "700",
   },
 });
