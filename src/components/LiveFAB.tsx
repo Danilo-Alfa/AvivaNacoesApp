@@ -330,7 +330,7 @@ export function LiveFAB({ hidden = false }: { hidden?: boolean }) {
               style={styles.whatsappInner}
             >
               <MessageCircle size={18} color="#ffffff" />
-              <Text style={styles.whatsappText}>Enviar mensagem para a rádio</Text>
+              <Text style={styles.whatsappText}>Enviar mensagem para a Web Rádio</Text>
             </Pressable>
           </View>
         </View>
