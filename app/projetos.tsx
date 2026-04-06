@@ -17,14 +17,14 @@ const localImages: Record<string, any> = {
   cantina: require("../assets/projetos/cantina.jpeg"),
   festival: require("../assets/projetos/festival.jpeg"),
   inscricoes: require("../assets/projetos/inscricoes.jpeg"),
-  "levitas mulheres": require("../assets/projetos/levitas mulheres.jpeg"),
+  "levitas mulheres": require("../assets/projetos/levitas-mulheres.jpeg"),
   levitas: require("../assets/projetos/levitas.jpeg"),
   midia: require("../assets/projetos/midia.jpeg"),
   ornamentacao: require("../assets/projetos/ornamentacao.jpeg"),
   professores: require("../assets/projetos/professores.jpeg"),
-  "retiro espiritual": require("../assets/projetos/retiro espiritual.jpeg"),
+  "retiro espiritual": require("../assets/projetos/retiro-espiritual.jpeg"),
   som: require("../assets/projetos/som.jpeg"),
-  "viagem missionaria": require("../assets/projetos/viagem missionaria.jpeg"),
+  "viagem missionaria": require("../assets/projetos/viagem-missionaria.jpeg"),
 };
 
 /** Try to find a local image matching the projeto's imagem_url filename */
