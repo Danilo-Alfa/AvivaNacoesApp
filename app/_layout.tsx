@@ -51,10 +51,10 @@ function AppContent() {
     <View style={rootStyle}>
       <StatusBar style={isDark ? "light" : "dark"} />
 
-      {/* Global header — same on every page, just like the web */}
-      <AppHeader onMenuPress={openDrawer} />
+      {/* Global header — hidden on escola-aviva (uses its own header) */}
+      {pathname !== "/escola-aviva" && <AppHeader onMenuPress={openDrawer} />}
 
-      <OfflineBanner />
+      {pathname !== "/escola-aviva" && <OfflineBanner />}
 
       {/* All screens render below the header with NO native header */}
       <Stack
@@ -81,7 +81,7 @@ function AppContent() {
         <Stack.Screen name="+not-found" />
       </Stack>
 
-      {pathname !== "/live" && (
+      {pathname !== "/live" && pathname !== "/escola-aviva" && (
         <View pointerEvents="box-none" style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, zIndex: 50 }}>
           <LiveFAB hidden={drawerOpen} />
         </View>
