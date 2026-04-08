@@ -12,6 +12,7 @@ import {
   Pressable,
 } from "react-native";
 import { Video as ExpoVideo, ResizeMode } from "expo-av";
+import HlsPlayer from "@/components/HlsPlayer";
 import { useQuery } from "@tanstack/react-query";
 import { LogOut, Play, Radio, User, Users, Video } from "lucide-react-native";
 import { Button } from "@/components/ui/Button";
@@ -35,6 +36,7 @@ interface Recording {
   name: string;
   mtime: string;
   size: number;
+  hasHls: boolean;
 }
 
 function formatFileSize(bytes: number): string {
@@ -44,14 +46,16 @@ function formatFileSize(bytes: number): string {
 }
 
 function formatRecordingDate(filename: string): string {
-  const match = filename.match(/(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})/);
-  if (!match) return filename;
-  const [, year, month, day, hour, min] = match;
-  return `${day}/${month}/${year} às ${hour}:${min}`;
+  const match = filename.match(/_(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})/);
+  if (!match) return "Live";
+  const [, year, month, day, hour, min, sec] = match;
+  // Timestamp do servidor em fuso +0200 (CEST), converter para UTC subtraindo 2h
+  const serverDate = new Date(Date.UTC(+year, +month - 1, +day, +hour - 2, +min, +sec));
+  return `Live do dia ${serverDate.toLocaleDateString("pt-BR")}`;
 }
 
 const STREAM_URL = process.env.EXPO_PUBLIC_STREAM_URL || "";
-const SERVER_BASE_URL = STREAM_URL.replace(/\/live\/.*$/, "");
+const SERVER_BASE_URL = STREAM_URL.replace(/\/live\/.*$/, "").replace(/^http:\/\//, "https://");
 
 export default function LiveScreen() {
   const { isDark } = useThemeForScreen();
@@ -103,11 +107,18 @@ export default function LiveScreen() {
     setLoadingRecordings(true);
     fetch(`${SERVER_BASE_URL}/recordings/`)
       .then((res) => res.json())
-      .then((files: { name: string; mtime: string; size: number }[]) => {
-        const mp4s = files
-          .filter((f) => f.name.endsWith(".mp4"))
+      .then((files: { name: string; mtime: string; size: number; type: string }[]) => {
+        const mp4s = files.filter((f) => f.name.endsWith(".mp4"));
+        const dirs = new Set(files.filter((f) => f.type === "directory").map((f) => f.name));
+        const recs: Recording[] = mp4s
+          .map((f) => ({
+            name: f.name,
+            mtime: f.mtime,
+            size: f.size,
+            hasHls: dirs.has(f.name.replace(".mp4", "")),
+          }))
           .sort((a, b) => new Date(b.mtime).getTime() - new Date(a.mtime).getTime());
-        setRecordings(mp4s);
+        setRecordings(recs);
       })
       .catch(() => setRecordings([]))
       .finally(() => setLoadingRecordings(false));
@@ -274,17 +285,18 @@ export default function LiveScreen() {
 
           {/* Player */}
           <View style={{ marginHorizontal: 16, marginBottom: 16 }}>
-            <View style={s.playerBox}>
-              <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-                <Radio size={48} color="#ffffff" />
-                <Text style={{ color: "#ffffff", marginTop: 8, fontSize: 14 }}>
-                  Transmissão em andamento
-                </Text>
-                <Text style={{ color: "rgba(255,255,255,0.6)", fontSize: 12, marginTop: 4 }}>
-                  Player HLS ativo
-                </Text>
+            {STREAM_URL ? (
+              <HlsPlayer url={STREAM_URL} autoPlay />
+            ) : (
+              <View style={s.playerBox}>
+                <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+                  <Radio size={48} color="#ffffff" />
+                  <Text style={{ color: "#ffffff", marginTop: 8, fontSize: 14 }}>
+                    URL do stream nao configurada
+                  </Text>
+                </View>
               </View>
-            </View>
+            )}
           </View>
 
           {/* Alert */}
@@ -405,27 +417,37 @@ export default function LiveScreen() {
             </View>
 
             {/* Player da gravação selecionada */}
-            {playingVideo && (
-              <View style={{ marginBottom: 16 }}>
-                <View style={{ aspectRatio: 16 / 9, backgroundColor: "#000", borderRadius: 8, overflow: "hidden" }}>
-                  <ExpoVideo
-                    source={{ uri: `${SERVER_BASE_URL}/recordings/${playingVideo}` }}
-                    style={{ flex: 1 }}
-                    useNativeControls
-                    resizeMode={ResizeMode.CONTAIN}
-                    shouldPlay
-                  />
+            {playingVideo && (() => {
+              const currentRec = recordings.find((r) => r.name === playingVideo);
+              const useHls = currentRec?.hasHls;
+              const hlsUrl = `${SERVER_BASE_URL}/recordings/${playingVideo.replace(".mp4", "")}/master.m3u8`;
+              return (
+                <View style={{ marginBottom: 16 }}>
+                  <View style={{ aspectRatio: 16 / 9, backgroundColor: "#000", borderRadius: 8, overflow: "hidden" }}>
+                    {useHls ? (
+                      <HlsPlayer url={hlsUrl} autoPlay live={false} />
+                    ) : (
+                      <ExpoVideo
+                        source={{ uri: `${SERVER_BASE_URL}/recordings/${playingVideo}` }}
+                        style={{ flex: 1 }}
+                        useNativeControls
+                        resizeMode={ResizeMode.CONTAIN}
+                        shouldPlay
+                      />
+                    )}
+                  </View>
+                  <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 8 }}>
+                    <Text style={[s.textSm, { color: c.muted }]}>
+                      {formatRecordingDate(playingVideo)}
+                      {useHls ? " - Selecione a qualidade no player" : ""}
+                    </Text>
+                    <Pressable onPress={() => setPlayingVideo(null)}>
+                      <Text style={[s.textSm, { color: c.primary }]}>Fechar player</Text>
+                    </Pressable>
+                  </View>
                 </View>
-                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 8 }}>
-                  <Text style={[s.textSm, { color: c.muted }]}>
-                    {formatRecordingDate(playingVideo)}
-                  </Text>
-                  <Pressable onPress={() => setPlayingVideo(null)}>
-                    <Text style={[s.textSm, { color: c.primary }]}>Fechar player</Text>
-                  </Pressable>
-                </View>
-              </View>
-            )}
+              );
+            })()}
 
             {/* Lista de gravações */}
             {recordings.map((rec) => (
@@ -459,7 +481,7 @@ export default function LiveScreen() {
                     {formatRecordingDate(rec.name)}
                   </Text>
                   <Text style={[s.textXs, { color: c.muted }]}>
-                    {formatFileSize(rec.size)}
+                    {formatFileSize(rec.size)}{rec.hasHls ? " - Multi qualidade" : ""}
                   </Text>
                 </View>
               </Pressable>
