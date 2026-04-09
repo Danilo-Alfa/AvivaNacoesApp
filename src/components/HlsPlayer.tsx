@@ -91,7 +91,7 @@ function initHls(){
     });
     return;
   }
-  hls=new Hls(${live ? `{enableWorker:true,lowLatencyMode:true,liveSyncDurationCount:2,liveMaxLatencyDurationCount:3,liveDurationInfinity:true,maxBufferLength:4,maxMaxBufferLength:8,maxBufferHole:.3,backBufferLength:0,manifestLoadingMaxRetry:10,manifestLoadingRetryDelay:500,levelLoadingMaxRetry:10,levelLoadingRetryDelay:500,fragLoadingMaxRetry:10,fragLoadingRetryDelay:500}` : `{enableWorker:true,maxBufferLength:30,maxMaxBufferLength:60,manifestLoadingMaxRetry:5,levelLoadingMaxRetry:5,fragLoadingMaxRetry:5}`});
+  hls=new Hls(${live ? `{enableWorker:true,lowLatencyMode:true,liveSyncDurationCount:3,liveMaxLatencyDurationCount:5,liveDurationInfinity:true,maxBufferLength:10,maxMaxBufferLength:20,maxBufferHole:.5,backBufferLength:0,startFragPrefetch:true,manifestLoadingMaxRetry:6,manifestLoadingRetryDelay:500,levelLoadingMaxRetry:6,levelLoadingRetryDelay:500,fragLoadingMaxRetry:6,fragLoadingRetryDelay:500}` : `{enableWorker:true,maxBufferLength:30,maxMaxBufferLength:60,startFragPrefetch:true,manifestLoadingMaxRetry:5,levelLoadingMaxRetry:5,fragLoadingMaxRetry:5}`});
   hls.loadSource('${url}');
   hls.attachMedia(video);
   hls.on(Hls.Events.MANIFEST_PARSED,function(){
