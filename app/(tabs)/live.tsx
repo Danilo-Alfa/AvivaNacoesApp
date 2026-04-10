@@ -31,6 +31,7 @@ import { mmkvStorage } from "@/lib/storage";
 import { useThemeForScreen } from "@/hooks/useThemeForScreen";
 import { useScreenReady } from "@/hooks/useScreenReady";
 import type { LiveConfig } from "@/types";
+import { red } from "react-native-reanimated/lib/typescript/Colors";
 
 interface Recording {
   name: string;
@@ -54,8 +55,9 @@ function formatRecordingDate(filename: string): string {
   return `Live do dia ${serverDate.toLocaleDateString("pt-BR")}`;
 }
 
-const STREAM_URL = process.env.EXPO_PUBLIC_STREAM_URL || "";
-const SERVER_BASE_URL = STREAM_URL.replace(/\/live\/.*$/, "").replace(/^http:\/\//, "https://");
+const RAW_STREAM_URL = process.env.EXPO_PUBLIC_STREAM_URL || "";
+const STREAM_URL = RAW_STREAM_URL.replace(/^http:\/\//, "https://");
+const SERVER_BASE_URL = STREAM_URL.replace(/\/live\/.*$/, "");
 
 export default function LiveScreen() {
   const { isDark } = useThemeForScreen();
@@ -439,10 +441,9 @@ export default function LiveScreen() {
                   <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 8 }}>
                     <Text style={[s.textSm, { color: c.muted }]}>
                       {formatRecordingDate(playingVideo)}
-                      {useHls ? " - Selecione a qualidade no player" : ""}
                     </Text>
                     <Pressable onPress={() => setPlayingVideo(null)}>
-                      <Text style={[s.textSm, { color: c.primary }]}>Fechar player</Text>
+                      <Text style={[s.textSm, { color: "#ff000d" }]}>Fechar player</Text>
                     </Pressable>
                   </View>
                 </View>
